@@ -1,5 +1,6 @@
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 from xmlrpclib import ServerProxy,Fault
+from os import listdir
 from os.path import join,abspath,isfile
 from urlparse import urlparse
 import sys
@@ -8,27 +9,10 @@ import logging
 import argparse
 
 # logger
-#logging.basicConfig(level = logging.DEBUG)
-logging.basicConfig(filename='p2p.log',level = logging.DEBUG)
+logging.basicConfig(level = logging.DEBUG)
+#logging.basicConfig(filename='p2p.log',level = logging.DEBUG)
 #logging.basicConfig(filename='p2p.log',level=logging.DEBUG,format='%(lev    elname)s %(asctime)s %(message)s')
 mylogger = logging.getLogger('xxx')
-
-# argparse
-"""
-parser = argparse.ArgumentParser(description='p2p server')
-group = parser.add_mutually_exclusive_group()
-group.add_argument("-v", "--verbose", action="store_true",help="output detailed info to console")
-group.add_argument("-q", "--quiet", action="store_true",help="not output info to console")
-parser.add_argument("url", type=str, help="set url of this server; for example: http://localhost:1111")
-parser.add_argument("dir", type=str, help="set shared directory of this server; for example: folder1/")
-parser.add_argument("secret", type=str, help="set secret to access shared directory of this server")
-args = parser.parse_args()
-url = args.url
-directory = args.dir
-secret = args.secret
-if args.verbose:
-	mylogger = logging
-"""
 
 # settings
 SimpleXMLRPCServer.allow_reuse_address = 1
@@ -247,6 +231,34 @@ class Node:
 		mylogger.info('[broadcast] not found')
 		return NOT_EXIST,None
 
+
+class ListableNode(Node):
+	"""
+	node that we can list all available files in dirname
+	"""
+
+	def __init(self):
+		Node.__init__()
+
+	def list(self):
+		return listdir(self.dirname)
+
+"""
+# argparse
+parser = argparse.ArgumentParser(description='p2p server')
+group = parser.add_mutually_exclusive_group()
+group.add_argument("-v", "--verbose", action="store_true",help="output detailed info to console")
+group.add_argument("-q", "--quiet", action="store_true",help="not output info to console")
+parser.add_argument("url", type=str, help="set url of this server; for example: http://localhost:1111")
+parser.add_argument("dir", type=str, help="set shared directory of this server; for example: folder1/")
+parser.add_argument("secret", type=str, help="set secret to access shared directory of this server")
+args = parser.parse_args()
+url = args.url
+directory = args.dir
+secret = args.secret
+if args.verbose:
+	mylogger = logging
+"""
 
 def main():
 	if len(sys.argv)<4:
