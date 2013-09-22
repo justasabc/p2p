@@ -1,8 +1,15 @@
 import os
+from os.path import join,abspath
 import socket
 import urllib2
 import re
+from urlparse import urlparse
+from random import choice
+from string import lowercase
+# by kzl
+from settings import URL_PREFIX,PORT
 
+# get local and external ip addres of this computer
 # gethostname gethostb_ex only apply on windows
 
 # method1: on windows and linux
@@ -71,11 +78,54 @@ def get_wan_ip():
 		return ""
 	
 
+def inside(dirname,filename):
+         """
+         check whether filename exists in dir folder 
+         """
+         absdir = abspath(dirname)
+         absfile = abspath(filename)
+         return absfile.startswith(join(absdir,''))
+
+
+
+def getport(url):
+        """
+        get port number from url like http://localhost:5555
+        """
+        name = urlparse(url)[1] # localhost:5555
+        parts = name.split(':')
+	return int(parts[-1])
+
+def randomstring(length):
+         """
+         generate a random string for given length
+         """
+         chars = []
+         letters = lowercase[:26]
+         while length>0:
+                 length -=1
+                 chars.append(choice(letters))
+         return ''.join(chars)
+
+def generate_urls(ipsfile):
+        """
+        generate urls from ips
+        192.168.1.200--->http://192.168.1.200:11111
+        """
+        for line in open(ipsfile):
+                ip = line.strip()
+		if ip:
+                	url = "{0}{1}:{2}".format(URL_PREFIX,ip,PORT)
+                	yield url
 
 def main():
 	print get_lan_ip()
 	print get_lan_ip2()
 	print get_wan_ip()
+	print getport('http://localhost:5555')
+	print randomstring(100)
+	for url in generate_urls('ips.txt'):
+		print url
 
 if __name__ =='__main__':
 	main()

@@ -1,65 +1,25 @@
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 from xmlrpclib import ServerProxy,Fault
 from os import listdir
-from os.path import join,abspath,isfile
-from urlparse import urlparse
+from os.path import join,isfile
 import sys
 import socket
-import logging
 import argparse
+# by kzl
+from utils import inside,get_lan_ip
+from settings import mylogger,MAX_HISTORY_LENGTH,NOT_EXIST,ACCESS_DENIED,SUCCESS,URL_PREFIX,PORT
 
-# logger
-logging.basicConfig(level = logging.DEBUG)
-#logging.basicConfig(filename='p2p.log',level = logging.DEBUG)
-#logging.basicConfig(filename='p2p.log',level=logging.DEBUG,format='%(lev    elname)s %(asctime)s %(message)s')
-mylogger = logging.getLogger('xxx')
+IP_LAN = get_lan_ip()
 
-# settings
-SimpleXMLRPCServer.allow_reuse_address = 1
-MAX_HISTORY_LENGTH = 6
-
-NOT_EXIST = -1
-ACCESS_DENIED = 0
-SUCCESS = 1
-
-'''
-class NotExist(Fault):
-	"""
-	excption raised when requested file does not exist
-	"""
-	def __init__(self,message='Can not find the file'):
-		Fault.__init__(self,NOT_EXIST,message)
-
-class AccessDenied(Fault):
-	"""
-	excption raised when requested file is access denied
-	"""
-	def __init__(self,message='Access denied'):
-		Fault.__init__(self,ACCESS_DENIED,message)
-'''
-
-def inside(dirname,filename):
-	"""
-	check whether filename exists in dir folder 
-	"""
-	absdir = abspath(dirname)
-	absfile = abspath(filename)
-	return absfile.startswith(join(absdir,''))
-
-def getport(url):
-	"""
-	get port number from url like http://localhost:5555
-	"""
-	name = urlparse(url)[1] # localhost:5555
-	parts = name.split(':')
-	return int(parts[-1])
-	
 class Node:
 	"""
 	a simple node class
 	"""
-	def __init__(self,url,dirname,secret):
-		self.url = url
+	def __init__(self,port,dirname,secret):
+		# bool to indicate whether node is running
+		self.running = False
+		self.port = port
+		self.url = "{0}{1}:{2}".format(URL_PREFIX,IP_LAN,port)
 		self.dirname = dirname
 		self.secret = secret
 		# store all known urls in set (including self)
@@ -165,17 +125,37 @@ class Node:
 			f.close()
 		return code
 
+	def _start2(self):
+		"""
+		start may throw exception,catch exception in client.py
+		"""
+		t = ('',self.port)
+		# in both server and client set allow_none=True
+		s = SimpleXMLRPCServer(t,allow_none=True,logRequests=False)
+		s.register_instance(self)
+		print("[_start]: Server started at {0}".format(self.url))
+		s.serve_forever()
+
 	def _start(self):
 		try:
-			t = ('',getport(self.url))
+			t = ('',self.port)
 			# in both server and client set allow_none=True
 			s = SimpleXMLRPCServer(t,allow_none=True,logRequests=False)
 			s.register_instance(self)
 			print("[_start]: Server started at {0}".format(self.url))
+			self.running = True # running
 			s.serve_forever()
+		except socket.error,e:
+			mylogger.warn('[_start]: socket error')
+			mylogger.warn(e)
+			self.running = False # not running
+			sys.exit()
 		except Exception, e:
 			mylogger.info('[_start]: except')
+			mylogger.warn(e)
 			mylogger.info('[_start]: Server stopped at {0}'.format(self.url))
+			self.running = False # not running
+			sys.exit()
 
 	def _handle(self,query):
 		mylogger.info('-'*20)
@@ -243,29 +223,8 @@ class ListableNode(Node):
 	def list(self):
 		return listdir(self.dirname)
 
-"""
-# argparse
-parser = argparse.ArgumentParser(description='p2p server')
-group = parser.add_mutually_exclusive_group()
-group.add_argument("-v", "--verbose", action="store_true",help="output detailed info to console")
-group.add_argument("-q", "--quiet", action="store_true",help="not output info to console")
-parser.add_argument("url", type=str, help="set url of this server; for example: http://localhost:1111")
-parser.add_argument("dir", type=str, help="set shared directory of this server; for example: folder1/")
-parser.add_argument("secret", type=str, help="set secret to access shared directory of this server")
-args = parser.parse_args()
-url = args.url
-directory = args.dir
-secret = args.secret
-if args.verbose:
-	mylogger = logging
-"""
-
 def main():
-	if len(sys.argv)<4:
-		print('Usage: python xxx.py url dir secret')
-		sys.exit()
-	url,directory,secret = sys.argv[1:]
-	n = Node(url,directory,secret)
+	n = Node(21111,'share/','')
 	n._start()
 
 if __name__ =='__main__':
