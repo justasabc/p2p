@@ -55,7 +55,7 @@ class Node:
 			except Fault:
 				mylogger.info('[inform]: {0} started but inform failed'.format(other))
 			except socket.error:
-				#mylogger.info('[inform]: {0} not started'.format(other))
+				mylogger.info('[inform]: {0} not started'.format(other))
 				pass
 	
 	def _offline(self):
@@ -72,7 +72,7 @@ class Node:
 			except Fault:
 				mylogger.info('[inform]: {0} started but inform failed'.format(other))
 			except socket.error:
-				#mylogger.info('[inform]: {0} not started'.format(other))
+				mylogger.info('[inform]: {0} not started'.format(other))
 				pass
 	
 	
@@ -223,7 +223,42 @@ class ListableNode(Node):
 		Node.__init__()
 
 	def list(self):
+		"""
+		list files in local node
+		"""
+		mylogger.info('[list]: list files in {0}'.format(self.url))
 		return listdir(self.dirname)
+	
+	def _listother(self,other):
+		"""
+		list files in other node
+		"""
+		mylogger.info('[_listother]: list files in {0}'.format(other))
+		s = ServerProxy(other)
+		lt = []
+		try:
+			lt = s.list(other)
+		except Fault:
+			mylogger.info('[_listother]: {0} started but list failed'.format(other))
+		except socket.error:
+			mylogger.info('[_listother]: {0} not started'.format(other))
+			pass
+		return lt
+
+	def listall(self):
+		"""
+		list all files in known urls
+		"""
+		mylogger.info('[listall]: list all files in remote nodes')
+		url_list={}
+		for other in self.known.copy():
+			#print(other)
+			if other == self.url:
+				lt = self.list()
+			else:
+				lt = self._listother(other)
+			url_list[other]= lt
+		return url_list.items()
 
 def main():
 	n = Node(21111,'share/','')

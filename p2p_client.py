@@ -49,6 +49,9 @@ class NodeService():
 	def list(self):
 		return self.server.list()
 
+	def listall(self):
+		return self.server.listall()
+
 	def stop(self):
 		# inform others that myself is offline
 		return self.server.inform(False)
@@ -70,11 +73,11 @@ class GuiWidget(QtGui.QWidget):
 		hbox.addWidget(self.le)
 		hbox.addWidget(self.btn)
 		
-		self.te = QtGui.QTextEdit()
+		self.lb = QtGui.QListWidget()
 		
 		vbox = QtGui.QVBoxLayout(self)
 		vbox.addLayout(hbox)
-		vbox.addWidget(self.te)
+		vbox.addWidget(self.lb)
 	
 		# set layout
 		self.setLayout(vbox)
@@ -118,11 +121,14 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		self.main_widget = GuiWidget(self)
 		self.main_widget.le.textChanged[str].connect(self.onTextChanged)
 		self.main_widget.btn.clicked.connect(self.onFetchHandler)
+		self.main_widget.lb.itemClicked.connect(self.onListItemClicked)
 		# set central widget for main window
 		self.setCentralWidget(self.main_widget)
 
 		# set control states
 		self.setFetchEnabled(False)
+		# update list
+		self.updateList()
 
 		# settings for window
 		self.resize(WIN_WIDTH,WIN_HEIGHT)
@@ -131,6 +137,10 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		self.setWindowTitle('File Sharing Client')
 		self.setWindowIcon(QtGui.QIcon(ICON_APP))
 		self.show()
+	
+	def updateList(self):
+		for item in NodeService.list(self):
+			self.main_widget.lb.addItem(item)
 
 	def setFetchEnabled(self,enabled):
 		self.fetchAction.setEnabled(enabled)
@@ -183,6 +193,9 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		else:
 			msg ="File not exist"
 		self.statusbar.showMessage(msg)
+	
+	def onListItemClicked(self,value):
+		self.main_widget.le.setText(value.text())
 		
 def main_gui():
 	app = QtGui.QApplication(sys.argv)
@@ -220,10 +233,20 @@ class ConsoleClient(NodeService,Cmd):
 
 	def do_list(self,arg):
 		"""
-		list all shared files in this node	
+		list all shared files in local node	
 		"""
-		print('###[do_list]: shared files in this node')
-		print(self.server.list())
+		print('###[do_list]: list shared files in local node')
+		print(NodeService.list(self))
+
+	def do_listall(self,arg):
+		"""
+		list shared files in all remote nodes	
+		"""
+		print('###[do_listall]: list shared files in all remote nodes')
+		for url,lt in NodeService.listall(self):
+			print('*'*60)
+			print('url:{0}'.format(url))
+			print('files:{0}'.format(lt))
 
 	def do_exit(self,arg):
 		"""
