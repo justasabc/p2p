@@ -129,11 +129,11 @@ class Node:
 				self._savefile(filepath,binary.data)
 		return code
 
-	def _savefile(filepath,data):
+	def _savefile(self,filepath,data):
 		"""
 		save data to file
 		"""
-		f = open(filepath,'w')
+		f = open(filepath,'wb')
 		f.write(data)
 		f.close()
 
