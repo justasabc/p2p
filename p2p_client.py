@@ -23,7 +23,7 @@ class NodeService():
 	def start(self):
 		self.secret = randomstring(SECRET_LENGTH)
 		# start node server in a seprate thread
-		n = Node(self.port,self.dirname,self.secret)
+		n = ListableNode(self.port,self.dirname,self.secret)
 		# node's start method may throw exception
 		t = Thread(target=n._start)
 		# true: thread stopped once main thread exit

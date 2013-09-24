@@ -52,10 +52,11 @@ class Node:
 			s = ServerProxy(other)
 			try:
 				s.addurl(self.url)
-			except Fault:
-				mylogger.info('[inform]: {0} started but inform failed'.format(other))
+			except Fault,f:
+				mylogger.warn(f)
+				mylogger.warn('[inform]: {0} started but inform failed'.format(other))
 			except socket.error:
-				mylogger.info('[inform]: {0} not started'.format(other))
+				mylogger.warn('[inform]: {0} not started'.format(other))
 				pass
 	
 	def _offline(self):
@@ -69,10 +70,11 @@ class Node:
 			s = ServerProxy(other)
 			try:
 				s.removeurl(self.url)
-			except Fault:
-				mylogger.info('[inform]: {0} started but inform failed'.format(other))
+			except Fault,f:
+				mylogger.warn(f)
+				mylogger.warn('[inform]: {0} started but inform failed'.format(other))
 			except socket.error:
-				mylogger.info('[inform]: {0} not started'.format(other))
+				mylogger.warn('[inform]: {0} not started'.format(other))
 				pass
 	
 	
@@ -125,7 +127,6 @@ class Node:
 			if isfile(filepath):
 				mylogger.info("[fetch]: {0} already exist".format(filepath))
 			else:
-				#self._savefile(filepath,data)
 				self._savefile(filepath,binary.data)
 		return code
 
@@ -147,14 +148,14 @@ class Node:
 			self.running = True # running
 			s.serve_forever()
 		except socket.error,e:
-			mylogger.warn('[_start]: socket error')
 			mylogger.warn(e)
+			mylogger.warn('[_start]: socket error')
 			self.running = False # not running
 			sys.exit()
 		except Exception, e:
-			mylogger.info('[_start]: except')
 			mylogger.warn(e)
-			mylogger.info('[_start]: Server stopped at {0}'.format(self.url))
+			mylogger.warn('[_start]: except')
+			mylogger.warn('[_start]: Server stopped at {0}'.format(self.url))
 			self.running = False # not running
 			sys.exit()
 
@@ -197,67 +198,28 @@ class Node:
 				else:
 					mylogger.info('[broadcast]: query ACCESS_DENIED!!!')
 			except Fault, f: # connected to server,but method does not exist(Never happen in this example)
-				mylogger.info("[broadcast]:except fault")
-				mylogger.info(f)
+				mylogger.warn(f)
+				mylogger.warn("[broadcast]:except fault")
 			except socket.error, e:
-				mylogger.info("[broadcast]:except socket error")
-				mylogger.info(e)
-				mylogger.info('[broadcast]: CAN NOT connect from {0} to {1}'.format(self.url,other))
+				mylogger.warn(e)
+				mylogger.warn("[broadcast]:except socket error")
+				mylogger.warn('[broadcast]: CAN NOT connect from {0} to {1}'.format(self.url,other))
 				# added by kzl
 				self.known.remove(other)
-				mylogger.info('[broadcast]: <knows>: {0}'.format(self.known))
-				mylogger.info("[broadcast]: <history>: {0}".format(history))
+				#mylogger.warn('[broadcast]: <knows>: {0}'.format(self.known))
+				#mylogger.warn("[broadcast]: <history>: {0}".format(history))
 			except Exception, e:
-				mylogger.info("[broadcast]: Exception")
-				mylogger.info(e)
+				mylogger.warn(e)
+				mylogger.warn("[broadcast]: Exception")
 		mylogger.info('[broadcast] not found')
 		return NOT_EXIST,None
-
-	def list(self):
-		"""
-		list files in local node
-		"""
-		mylogger.info('[list]: list files in {0}'.format(self.url))
-		return listdir(self.dirname)
-	
-	def _listother(self,other):
-		"""
-		list files in other node
-		"""
-		mylogger.info('[_listother]: list files in {0}'.format(other))
-		s = ServerProxy(other)
-		lt = []
-		try:
-			lt = s.list(other)
-		except Fault:
-			mylogger.info('[_listother]: {0} started but list failed'.format(other))
-		except socket.error:
-			mylogger.info('[_listother]: {0} not started'.format(other))
-			pass
-		return lt
-
-	def listall(self):
-		"""
-		list all files in known urls
-		"""
-		mylogger.info('[listall]: list all files in remote nodes')
-		url_list={}
-		for other in self.known.copy():
-			#print(other)
-			if other == self.url:
-				lt = self.list()
-			else:
-				lt = self._listother(other)
-			url_list[other]= lt
-		return url_list.items()
 
 class ListableNode(Node):
 	"""
 	node that we can list all available files in dirname
 	"""
-
-	def __init(self):
-		Node.__init__()
+	def __init__(self,port,dirname,secret):
+		Node.__init__(self,port,dirname,secret)
 
 	def list(self):
 		"""
@@ -274,11 +236,13 @@ class ListableNode(Node):
 		s = ServerProxy(other)
 		lt = []
 		try:
-			lt = s.list(other)
-		except Fault:
-			mylogger.info('[_listother]: {0} started but list failed'.format(other))
-		except socket.error:
-			mylogger.info('[_listother]: {0} not started'.format(other))
+			lt = s.list()
+		except Fault,f:
+			mylogger.warn(f)
+			mylogger.warn('[_listother]: {0} started but list failed'.format(other))
+		except socket.error,e:
+			mylogger.warn(e)
+			mylogger.warn('[_listother]: {0} not started'.format(other))
 			pass
 		return lt
 
