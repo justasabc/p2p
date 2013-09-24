@@ -9,7 +9,7 @@ import logging
 # by kzl
 from settings import mylogger,NOT_EXIST,ACCESS_DENIED,SUCCESS,PORT,SHARED_FOLDER,SERVER_START_TIME,SECRET_LENGTH,IPS_FILE
 from utils import randomstring,generate_urls
-from p2p_server import ListableNode
+from p2p_server import Node,ListableNode
 # gui
 from PyQt4 import QtGui,QtCore
 from settings import WIN_WIDTH,WIN_HEIGHT,ICON_APP,ICON_FETCH,ICON_QUIT
@@ -23,7 +23,7 @@ class NodeService():
 	def start(self):
 		self.secret = randomstring(SECRET_LENGTH)
 		# start node server in a seprate thread
-		n = ListableNode(self.port,self.dirname,self.secret)
+		n = Node(self.port,self.dirname,self.secret)
 		# node's start method may throw exception
 		t = Thread(target=n._start)
 		# true: thread stopped once main thread exit
