@@ -1,5 +1,5 @@
 from SimpleXMLRPCServer import SimpleXMLRPCServer
-from xmlrpclib import ServerProxy,Fault
+from xmlrpclib import ServerProxy,Fault,Binary
 from os import listdir
 from os.path import join,isfile
 import sys
@@ -116,25 +116,26 @@ class Node:
 		mylogger.info('[fetch]: fetching from {0}'.format(self.url))
 		if secret != self.secret:
 			return ACCESS_DENIED
-		code,data = self.query(query) 
+		code,binary = self.query(query) 
 		mylogger.info('[fetch]: query return code {0}'.format(code))
 		mylogger.info("[fetch]: knows: {0}".format(self.known))
 		if code == SUCCESS:
-			f = open(join(self.dirname,query),'w')
-			f.write(data)
-			f.close()
+			filepath = join(self.dirname,query)
+			# exist locally
+			if isfile(filepath):
+				mylogger.info("[fetch]: {0} already exist".format(filepath))
+			else:
+				#self._savefile(filepath,data)
+				self._savefile(filepath,binary.data)
 		return code
 
-	def _start2(self):
+	def _savefile(filepath,data):
 		"""
-		start may throw exception,catch exception in client.py
+		save data to file
 		"""
-		t = ('',self.port)
-		# in both server and client set allow_none=True
-		s = SimpleXMLRPCServer(t,allow_none=True,logRequests=False)
-		s.register_instance(self)
-		print("[_start]: Server started at {0}".format(self.url))
-		s.serve_forever()
+		f = open(filepath,'w')
+		f.write(data)
+		f.close()
 
 	def _start(self):
 		try:
@@ -170,7 +171,8 @@ class Node:
 			mylogger.info('[handle]: not inside')
 			return ACCESS_DENIED,None
 		mylogger.info('[handle]: success')
-		return SUCCESS,open(filepath).read()
+		#return SUCCESS,open(filepath).read()
+		return SUCCESS,Binary(open(filepath,'rb').read())
 
 	def _broadcast(self,query,history):
 		mylogger.info('-'*10)
