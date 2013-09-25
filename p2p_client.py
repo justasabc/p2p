@@ -104,6 +104,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		self.initUI()
 
 	def initUI(self):
+		mylogger.info("[initUI]...")
 		# menus toolbars statusbar
 		# actions
 		self.fetchAction = QtGui.QAction(QtGui.QIcon(ICON_FETCH), '&Fetch', self)
@@ -148,10 +149,11 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		self.show()
 	
 	def updateList(self):
+		mylogger.info("[updateList]...")
 		localurl = NodeService.geturl(self)
 		# update list,only show files from other node
 		for url,lst in NodeService.listall(self):
-			if localurl == url
+			if localurl == url:
 				continue
 			for f in lst:
 				self.main_widget.lb.addItem(f)
@@ -167,6 +169,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
         	self.move(mbr.topLeft())
 
 	def keyPressEvent(self,event):	
+		mylogger.info("[keyPressEvent]")
 		if event.key() == QtCore.Qt.Key_Escape:
 			self.close()
 		elif event.key() == QtCore.Qt.Key_Enter:
@@ -174,11 +177,12 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		else: pass
 	
 	def closeEvent(self,event):
+		mylogger.info("[closeEvent]")
 		# If we close the QtGui.QWidget, the QtGui.QCloseEvent is generated and closeEvent is called.
         	reply = QtGui.QMessageBox.question(self, 'Message', "Are you sure to stop?", QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.Yes) 
         	if reply == QtGui.QMessageBox.Yes:
 			# when exit,inform other nodes 
-			print('###[do_exit]: program is going to exit... ')
+			mylogger.info('###[closeEvent]: program is going to exit... ')
 			NodeService.stop(self)
             		event.accept()
        		else:
@@ -193,6 +197,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 			self.setFetchEnabled(True)
 		
 	def onFetchHandler(self,value):
+		mylogger.info("[onFetchHandler]")
 		# by default ,for a button value is False
 		arg = str(self.main_widget.le.text())
 		if not arg.strip():
@@ -213,6 +218,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 			msg ="Not exist for [{0}]".format(arg)
 		else:
 			msg = "Already exist for [{0}]".format(arg)
+		mylogger.info(msg)
 		self.statusbar.showMessage(msg)
 	
 	def onListItemClicked(self,value):

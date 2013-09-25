@@ -31,7 +31,9 @@ class Node:
 			# in both server and client set allow_none=True
 			s = SimpleXMLRPCServer(t,allow_none=True,logRequests=False)
 			s.register_instance(self)
-			print("[_start]: Server started at {0}".format(self.url))
+			msg ="[_start]: Server started at {0}...".format(self.url)
+			print(msg)
+			mylogger.info(msg)
 			self.running = True # running
 			s.serve_forever()
 		except socket.error,e:
