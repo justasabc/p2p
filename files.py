@@ -37,15 +37,27 @@ def list_all_files_generator(rootdir):
 			filepath = os.path.join(root,filename)
 			yield filepath
 
+def ensure_dir(filepath):
+	"""
+	if dir not exist,create it
+	./share/image/1.png
+	"""
+	d = os.path.dirname(filepath)
+	if not os.path.exists(d):
+		os.makedirs(d)
+
 def savefile_frombinary(filepath,data):
+	ensure_dir(filepath)
 	with open(filepath,'wb') as f:
 		f.write(data)
 
 def savefile_frombinary_xmlrpc(filepath,data):
+	ensure_dir(filepath)
 	with open(filepath,'wb') as f:
 		f.write(data.data)
 
 def savefile_fromtext(filepath,data):
+	ensure_dir(filepath)
 	with open(filepath,'w') as f:
 		f.write(data)
 
@@ -84,6 +96,7 @@ def read_in_chunks(filepath,chunksize=CHUNK_SIZE):
 				return
 
 def savefile(filepath,newfilepath):
+	ensure_dir(newfilepath)
 	with open(newfilepath,'wb') as f:
 		for chunk in read_in_chunks(filepath):
 			f.write(chunk)
@@ -92,13 +105,18 @@ def main():
 		print f
 
 	filepath = './share/image/IMG_0004.JPG'
-	newfilepath = '1.JPG'
+	newfilepath = 'test/image/4.JPG'
 	data = readfile_asbinary(filepath)
 	savefile_frombinary(newfilepath,data)
-	"""
-	filepath = './share/image/IMG_2749.JPG'
-	newfilepath = '1.JPG'
+
+	filepath = './share/image/IMG_0011.JPG'
+	newfilepath = 'test/image/11.JPG'
+	data = readfile_asbinary_xmlrpc(filepath)
+	savefile_frombinary_xmlrpc(newfilepath,data)
+
+	filepath = './share/image/IMG_0008.JPG'
+	newfilepath = 'test/image2/8.JPG'
 	savefile(filepath,newfilepath)
-	"""
+
 if __name__ =="__main__":
 	main()
