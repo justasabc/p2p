@@ -1,5 +1,6 @@
 import sys
 import os
+import xmlrpclib
 # by kzl
 from settings import CHUNK_SIZE
 
@@ -37,22 +38,24 @@ def list_all_files_generator(rootdir):
 			yield filepath
 
 def savefile_frombinary(filepath,data):
-	"""
-	save binary data to file
-	"""
 	with open(filepath,'wb') as f:
 		f.write(data)
 
+def savefile_frombinary_xmlrpc(filepath,data):
+	with open(filepath,'wb') as f:
+		f.write(data.data)
+
 def savefile_fromtext(filepath,data):
-	"""
-	save text data to file
-	"""
 	with open(filepath,'w') as f:
 		f.write(data)
 
 def readfile_asbinary(filepath):
 	with open(filepath,'rb') as f:
 		return f.read()
+
+def readfile_asbinary_xmlrpc(filepath):
+	with open(filepath,'rb') as f:
+		return xmlrpclib.Binary(f.read())
 
 def readfile_astext(filepath):
 	with open(filepath,'r') as f:

@@ -6,8 +6,7 @@ import time
 import socket
 # by kzl
 from utils import inside,get_lan_ip
-import files
-from files import list_all_files,savefile_frombinary,readfile_asbinary
+from files import list_all_files,savefile_frombinary_xmlrpc,readfile_asbinary_xmlrpc
 from settings import mylogger,MAX_HISTORY_LENGTH,NOT_EXIST,ACCESS_DENIED,SUCCESS,URL_PREFIX,PORT
 
 IP_LAN = get_lan_ip()
@@ -130,7 +129,7 @@ class Node:
 			else:
 				mylogger.info('[fetch]: saving to {0} ...'.format(filepath))
 				t1 = time.clock()
-				files.savefile_frombinary(filepath,data)
+				savefile_frombinary_xmlrpc(filepath,data)
 				mylogger.info('[fetch]: saving finished'.format(filepath))
 				mylogger.info('[fetch]: time used {0}s'.format(time.clock()-t1))
 		return code
@@ -180,7 +179,7 @@ class Node:
 		# read file
 		mylogger.info('[handle]: reading {0} ...'.format(filepath))
 		t1 = time.clock()
-		data = files.readfile_asbinary(filepath)
+		data = files.readfile_asbinary_xmlrpc(filepath)
 		mylogger.info('[handle]: reading finished'.format(filepath))
 		mylogger.info('[handle]: time used {0}s'.format(time.clock()-t1))
 		return SUCCESS,data
