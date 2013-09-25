@@ -4,7 +4,6 @@ from os.path import join,isfile
 import sys
 import time
 import socket
-import argparse
 # by kzl
 from utils import inside,get_lan_ip
 import files
@@ -184,23 +183,6 @@ class Node:
 		data = files.readfile_asbinary(filepath)
 		mylogger.info('[handle]: reading finished'.format(filepath))
 		mylogger.info('[handle]: time used {0}s'.format(time.clock()-t1))
-		return SUCCESS,data
-
-	def _handle2(self,query):
-		mylogger.info('-'*20)
-		mylogger.info('[handle]: begin')
-		dir = self.dirname
-		filepath = join(dir,query)
-		mylogger.info(filepath)
-		if not isfile(filepath):
-			mylogger.info('[handle]: not file')
-			return NOT_EXIST,None
-		if not inside(dir,filepath):
-			mylogger.info('[handle]: not inside')
-			return ACCESS_DENIED,None
-		mylogger.info('[handle]: success')
-		# read file
-		data = files.readfile_asbinary(filepath)
 		return SUCCESS,data
 
 	def _broadcast(self,query,history):

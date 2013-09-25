@@ -87,6 +87,11 @@ def savefile(filepath,newfilepath):
 def main():
 	for f in list_all_files(rootdir):
 		print f
+
+	filepath = './share/image/IMG_0004.JPG'
+	newfilepath = '1.JPG'
+	data = readfile_asbinary(filepath)
+	savefile_frombinary(newfilepath,data)
 	"""
 	filepath = './share/image/IMG_2749.JPG'
 	newfilepath = '1.JPG'
