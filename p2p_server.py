@@ -182,7 +182,7 @@ class Node:
 		mylogger.info('[handle]: time used {0}s'.format(time.clock()-t1))
 		return SUCCESS,data
 
-	def _broadcast(self,query,history):
+	def _broadcast(self,query,starturl,history):
 		mylogger.info('-'*10)
 		mylogger.info('[broadcast]:')
 		mylogger.info("knows: {0}".format(self.known))
