@@ -171,7 +171,7 @@ class Node:
 			mylogger.info('[handle]: not inside')
 			return ACCESS_DENIED,None
 		if starturl == self.url:
-			mylogger.info('[handle]: already exist')
+			mylogger.info('[handle]: ******already exist******')
 			return ALREADY_EXIST,None
 		mylogger.info('[handle]: success')
 		mylogger.info('[handle]: reading {0} ...'.format(filepath))
@@ -266,7 +266,6 @@ class ListableNode(Node):
 		mylogger.info('[listall]: list all files in remote nodes')
 		url_list={}
 		for other in self.known.copy():
-			#print(other)
 			if other == self.url:
 				lt = self.list()
 			else:

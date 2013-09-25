@@ -148,9 +148,10 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		self.show()
 	
 	def updateList(self):
+		localurl = NodeService.geturl(self)
 		# update list,only show files from other node
 		for url,lst in NodeService.listall(self):
-			if url == NodeService.geturl(self):
+			if localurl == url
 				continue
 			for f in lst:
 				self.main_widget.lb.addItem(f)
