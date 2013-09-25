@@ -25,6 +25,35 @@ class Node:
 		# store all known urls in set (including self)
 		self.known = set()
 
+	def _start(self):
+		try:
+			t = ('',self.port)
+			# in both server and client set allow_none=True
+			s = SimpleXMLRPCServer(t,allow_none=True,logRequests=False)
+			s.register_instance(self)
+			print("[_start]: Server started at {0}".format(self.url))
+			self.running = True # running
+			s.serve_forever()
+		except socket.error,e:
+			mylogger.warn(e)
+			mylogger.warn('[_start]: socket error')
+			self.running = False # not running
+			sys.exit()
+		except Exception, e:
+			mylogger.warn(e)
+			mylogger.warn('[_start]: except')
+			mylogger.warn('[_start]: Server stopped at {0}'.format(self.url))
+			self.running = False # not running
+			sys.exit()
+
+	def _getfilepath(self,query):
+		# query like  './share/11.txt' or '11.txt'
+		mylogger.info('[_getfilepath]: for query {0}'.format(query))
+		if query.startswith(self.dirname):
+			return query
+		else:
+			return join(self.dirname,query)
+
 	def addurl(self,other):
 		"""
 		add other to myself's known set
@@ -90,6 +119,22 @@ class Node:
 		mylogger.info('[inform]: knows {0}'.format(self.known))
 		return SUCCESS
 	
+	def fetch(self,query,secret):
+		mylogger.info('-'*60)
+		mylogger.info('[fetch]: fetching from {0}'.format(self.url))
+		if secret != self.secret:
+			return ACCESS_DENIED
+		code,data = self.query(query,self.url,[]) 
+		mylogger.info('[fetch]: query return code {0}'.format(code))
+		mylogger.info("[fetch]: knows: {0}".format(self.known))
+		if code == SUCCESS:
+			filepath = self._getfilepath(query)
+			mylogger.info('[fetch]: saving to {0} ...'.format(filepath))
+			t1 = time.clock()
+			savefile_frombinary_xmlrpc(filepath,data)
+			mylogger.info('[fetch]: saving finished'.format(filepath))
+			mylogger.info('[fetch]: time used {0}s'.format(time.clock()-t1))
+		return code
 
 	def query(self,query,starturl,history=[]):
 		# return value:(NOT_EXIST,None)(ACCESS_DENIED,None)(SUCCESS,data)
@@ -113,57 +158,11 @@ class Node:
 		else: # access denied or already exist
 			return code,data
 
-	def fetch(self,query,secret):
-		mylogger.info('-'*60)
-		mylogger.info('[fetch]: fetching from {0}'.format(self.url))
-		if secret != self.secret:
-			return ACCESS_DENIED
-		code,data = self.query(query,self.url,[]) 
-		mylogger.info('[fetch]: query return code {0}'.format(code))
-		mylogger.info("[fetch]: knows: {0}".format(self.known))
-		if code == SUCCESS:
-			filepath = self.getfilepath(query)
-			mylogger.info('[fetch]: saving to {0} ...'.format(filepath))
-			t1 = time.clock()
-			savefile_frombinary_xmlrpc(filepath,data)
-			mylogger.info('[fetch]: saving finished'.format(filepath))
-			mylogger.info('[fetch]: time used {0}s'.format(time.clock()-t1))
-		return code
-
-	def _start(self):
-		try:
-			t = ('',self.port)
-			# in both server and client set allow_none=True
-			s = SimpleXMLRPCServer(t,allow_none=True,logRequests=False)
-			s.register_instance(self)
-			print("[_start]: Server started at {0}".format(self.url))
-			self.running = True # running
-			s.serve_forever()
-		except socket.error,e:
-			mylogger.warn(e)
-			mylogger.warn('[_start]: socket error')
-			self.running = False # not running
-			sys.exit()
-		except Exception, e:
-			mylogger.warn(e)
-			mylogger.warn('[_start]: except')
-			mylogger.warn('[_start]: Server stopped at {0}'.format(self.url))
-			self.running = False # not running
-			sys.exit()
-
-	def getfilepath(self,query):
-		# query like  './share/11.txt' or '11.txt'
-		mylogger.info('[getfilepath]: for query {0}'.format(query))
-		if query.startswith(self.dirname):
-			return query
-		else:
-			return join(self.dirname,query)
-
 	def _handle(self,query,starturl):
 		# query like  './share/11.txt' or '11.txt'
 		mylogger.info('-'*20)
 		mylogger.info('[handle]: begin')
-		filepath = self.getfilepath(query)
+		filepath = self._getfilepath(query)
 		mylogger.info('[handle]: filepath is {0}'.format(filepath))
 		if not isfile(filepath):
 			mylogger.info('[handle]: not file')
@@ -227,6 +226,13 @@ class ListableNode(Node):
 	"""
 	def __init__(self,port,dirname,secret):
 		Node.__init__(self,port,dirname,secret)
+
+	def geturl(self):
+		"""
+		return url of local node
+		"""
+		mylogger.info('[geturl]: url is {0}'.format(self.url))
+		return self.url
 
 	def list(self):
 		"""

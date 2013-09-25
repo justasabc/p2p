@@ -19,6 +19,8 @@ class NodeService():
 		self.port = port
 		self.dirname = dirname
 		self.ipsfile = ipsfile
+		# save server of this node
+		self.server = None
 		
 	def start(self):
 		self.secret = randomstring(SECRET_LENGTH)
@@ -51,6 +53,9 @@ class NodeService():
 
 	def listall(self):
 		return self.server.listall()
+	
+	def geturl(self):
+		return self.server.geturl()
 
 	def stop(self):
 		# inform others that myself is offline
@@ -139,7 +144,10 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		self.show()
 	
 	def updateList(self):
+		# update list,only show files from other node
 		for url,lst in NodeService.listall(self):
+			if url == NodeService.geturl(self):
+				continue
 			for f in lst:
 				self.main_widget.lb.addItem(f)
 
@@ -188,6 +196,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 			return
 		# add statusbar messge for fetching file
 		msg = "Fetching [{0}].......".format(arg)
+		mylogger.info(msg)
 		self.statusbar.showMessage(msg)
 		# use NodeService
 		code = NodeService.fetch(self,arg)
@@ -259,6 +268,13 @@ class ConsoleClient(NodeService,Cmd):
 			print('files:')
 			for f in lt:
 				print(f)
+
+	def do_geturl(self,arg):
+		"""
+		get url of local node
+		"""
+		print('###[do_geturl]: get url of local node')
+		print(NodeService.geturl(self))
 
 	def do_exit(self,arg):
 		"""
