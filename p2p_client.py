@@ -9,7 +9,7 @@ import logging
 # by kzl
 from settings import mylogger,NOT_EXIST,ACCESS_DENIED,SUCCESS,PORT,SHARED_FOLDER,SERVER_START_TIME,SECRET_LENGTH,IPS_FILE
 from utils import randomstring,generate_urls
-from p2p_server import Node,ListableNode
+from p2p_server import ListableNode
 # gui
 from PyQt4 import QtGui,QtCore
 from settings import WIN_WIDTH,WIN_HEIGHT,ICON_APP,ICON_FETCH,ICON_QUIT
@@ -139,8 +139,9 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		self.show()
 	
 	def updateList(self):
-		for item in NodeService.list(self):
-			self.main_widget.lb.addItem(item)
+		for url,lst in NodeService.listall(self):
+			for f in lst:
+				self.main_widget.lb.addItem(f)
 
 	def setFetchEnabled(self,enabled):
 		self.fetchAction.setEnabled(enabled)
@@ -236,7 +237,8 @@ class ConsoleClient(NodeService,Cmd):
 		list all shared files in local node	
 		"""
 		print('###[do_list]: list shared files in local node')
-		print(NodeService.list(self))
+		for f in NodeService.list(self):
+			print(f)
 
 	def do_listall(self,arg):
 		"""
@@ -246,7 +248,9 @@ class ConsoleClient(NodeService,Cmd):
 		for url,lt in NodeService.listall(self):
 			print('*'*60)
 			print('url:{0}'.format(url))
-			print('files:{0}'.format(lt))
+			print('files:')
+			for f in lt:
+				print(f)
 
 	def do_exit(self,arg):
 		"""

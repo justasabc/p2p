@@ -78,15 +78,16 @@ def get_wan_ip():
 		return ""
 	
 
-def inside(dirname,filename):
-         """
-         check whether filename exists in dir folder 
-         """
-         absdir = abspath(dirname)
-         absfile = abspath(filename)
-         return absfile.startswith(join(absdir,''))
-
-
+def inside(dirname,filepath):
+	"""
+         check whether file exists in dir folder 
+	 ./share/  ./share/11.txt
+        """
+	absdir = abspath(dirname)
+	absfile = abspath(filepath)
+	# make sure absdir2 end with '/'
+	absdir2 = join(absdir,'')
+	return absfile.startswith(absdir2)
 
 def getport(url):
         """
@@ -126,6 +127,14 @@ def main():
 	print randomstring(100)
 	for url in generate_urls('ips.txt'):
 		print url
+
+	dirname = './share/'
+	filepath = './share/11.txt'
+	print inside(dirname,filepath)
+
+	dirname = './share/'
+	filepath = './11.txt'
+	print inside(dirname,filepath)
 
 if __name__ =='__main__':
 	main()

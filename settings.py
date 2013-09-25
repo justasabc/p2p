@@ -9,7 +9,6 @@ logging.basicConfig(level = logging.DEBUG)
 #logging.basicConfig(filename='p2p.log',level=logging.DEBUG,format='%(lev        elname)s %(asctime)s %(message)s')
 mylogger = logging.getLogger('xxx')
 
-# settings
 SimpleXMLRPCServer.allow_reuse_address = 1
 MAX_HISTORY_LENGTH = 6
 
@@ -28,6 +27,9 @@ SHARED_FOLDER = "./share/"
 SERVER_START_TIME = 0.1
 SECRET_LENGTH = 100 
 IPS_FILE= "./ips.txt"
+
+# setting for file
+CHUNK_SIZE = 1024*64
 
 # settings for GUI
 WIN_WIDTH = 512

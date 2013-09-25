@@ -1,12 +1,14 @@
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 from xmlrpclib import ServerProxy,Fault,Binary
-from os import listdir
 from os.path import join,isfile
 import sys
+import time
 import socket
 import argparse
 # by kzl
 from utils import inside,get_lan_ip
+import files
+from files import list_all_files,savefile_frombinary,readfile_asbinary
 from settings import mylogger,MAX_HISTORY_LENGTH,NOT_EXIST,ACCESS_DENIED,SUCCESS,URL_PREFIX,PORT
 
 IP_LAN = get_lan_ip()
@@ -118,25 +120,21 @@ class Node:
 		mylogger.info('[fetch]: fetching from {0}'.format(self.url))
 		if secret != self.secret:
 			return ACCESS_DENIED
-		code,binary = self.query(query) 
+		code,data = self.query(query) 
 		mylogger.info('[fetch]: query return code {0}'.format(code))
 		mylogger.info("[fetch]: knows: {0}".format(self.known))
 		if code == SUCCESS:
-			filepath = join(self.dirname,query)
+			filepath = self.getfilepath(query)
 			# exist locally
 			if isfile(filepath):
 				mylogger.info("[fetch]: {0} already exist".format(filepath))
 			else:
-				self._savefile(filepath,binary.data)
+				mylogger.info('[fetch]: saving to {0} ...'.format(filepath))
+				t1 = time.clock()
+				files.savefile_frombinary(filepath,data)
+				mylogger.info('[fetch]: saving finished'.format(filepath))
+				mylogger.info('[fetch]: time used {0}s'.format(time.clock()-t1))
 		return code
-
-	def _savefile(self,filepath,data):
-		"""
-		save data to file
-		"""
-		f = open(filepath,'wb')
-		f.write(data)
-		f.close()
 
 	def _start(self):
 		try:
@@ -159,7 +157,36 @@ class Node:
 			self.running = False # not running
 			sys.exit()
 
+	def getfilepath(self,query):
+		# query like  './share/11.txt' or '11.txt'
+		mylogger.info('[getfilepath]: for query {0}'.format(query))
+		if query.startswith(self.dirname):
+			return query
+		else:
+			return join(self.dirname,query)
+
 	def _handle(self,query):
+		# query like  './share/11.txt' or '11.txt'
+		mylogger.info('-'*20)
+		mylogger.info('[handle]: begin')
+		filepath = self.getfilepath(query)
+		mylogger.info('[handle]: filepath is {0}'.format(filepath))
+		if not isfile(filepath):
+			mylogger.info('[handle]: not file')
+			return NOT_EXIST,None
+		if not inside(self.dirname,filepath):
+			mylogger.info('[handle]: not inside')
+			return ACCESS_DENIED,None
+		mylogger.info('[handle]: success')
+		# read file
+		mylogger.info('[handle]: reading {0} ...'.format(filepath))
+		t1 = time.clock()
+		data = files.readfile_asbinary(filepath)
+		mylogger.info('[handle]: reading finished'.format(filepath))
+		mylogger.info('[handle]: time used {0}s'.format(time.clock()-t1))
+		return SUCCESS,data
+
+	def _handle2(self,query):
 		mylogger.info('-'*20)
 		mylogger.info('[handle]: begin')
 		dir = self.dirname
@@ -172,8 +199,9 @@ class Node:
 			mylogger.info('[handle]: not inside')
 			return ACCESS_DENIED,None
 		mylogger.info('[handle]: success')
-		#return SUCCESS,open(filepath).read()
-		return SUCCESS,Binary(open(filepath,'rb').read())
+		# read file
+		data = files.readfile_asbinary(filepath)
+		return SUCCESS,data
 
 	def _broadcast(self,query,history):
 		mylogger.info('-'*10)
@@ -226,7 +254,7 @@ class ListableNode(Node):
 		list files in local node
 		"""
 		mylogger.info('[list]: list files in {0}'.format(self.url))
-		return listdir(self.dirname)
+		return files.list_all_files(self.dirname)
 	
 	def _listother(self,other):
 		"""
