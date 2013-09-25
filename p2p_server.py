@@ -7,7 +7,7 @@ import socket
 # by kzl
 from utils import inside,get_lan_ip
 from files import list_all_files,savefile_frombinary_xmlrpc,readfile_asbinary_xmlrpc
-from settings import mylogger,MAX_HISTORY_LENGTH,NOT_EXIST,ACCESS_DENIED,SUCCESS,URL_PREFIX,PORT
+from settings import mylogger,MAX_HISTORY_LENGTH,NOT_EXIST,ACCESS_DENIED,ALREADY_EXIST,SUCCESS,URL_PREFIX,PORT
 
 IP_LAN = get_lan_ip()
 
@@ -91,11 +91,11 @@ class Node:
 		return SUCCESS
 	
 
-	def query(self,query,history=[]):
+	def query(self,query,starturl,history=[]):
 		# return value:(NOT_EXIST,None)(ACCESS_DENIED,None)(SUCCESS,data)
 		mylogger.info('-'*40)
 		mylogger.info('[query]: querying from {0}'.format(self.url))
-		code,data = self._handle(query)
+		code,data = self._handle(query,starturl)
 		if code == SUCCESS:
 			mylogger.info('[query]: success')
 			return code,data
@@ -106,32 +106,28 @@ class Node:
 				mylogger.info('[query]: history too long')
 				return NOT_EXIST,None
 			mylogger.info("[query]: query for {0} NOT in {1}".format(query,history))
-			#return self._broadcast(query,history)
-			code,data = self._broadcast(query,history)
+			code,data = self._broadcast(query,starturl,history)
 			mylogger.info("[query]: [after broadcast]: {0}".format(code))
 			mylogger.info("[query]: knows: {0}".format(self.known))
 			return code,data
-		else: # access denied
+		else: # access denied or already exist
 			return code,data
+
 	def fetch(self,query,secret):
 		mylogger.info('-'*60)
 		mylogger.info('[fetch]: fetching from {0}'.format(self.url))
 		if secret != self.secret:
 			return ACCESS_DENIED
-		code,data = self.query(query) 
+		code,data = self.query(query,self.url,[]) 
 		mylogger.info('[fetch]: query return code {0}'.format(code))
 		mylogger.info("[fetch]: knows: {0}".format(self.known))
 		if code == SUCCESS:
 			filepath = self.getfilepath(query)
-			# exist locally
-			if isfile(filepath):
-				mylogger.info("[fetch]: {0} already exist".format(filepath))
-			else:
-				mylogger.info('[fetch]: saving to {0} ...'.format(filepath))
-				t1 = time.clock()
-				savefile_frombinary_xmlrpc(filepath,data)
-				mylogger.info('[fetch]: saving finished'.format(filepath))
-				mylogger.info('[fetch]: time used {0}s'.format(time.clock()-t1))
+			mylogger.info('[fetch]: saving to {0} ...'.format(filepath))
+			t1 = time.clock()
+			savefile_frombinary_xmlrpc(filepath,data)
+			mylogger.info('[fetch]: saving finished'.format(filepath))
+			mylogger.info('[fetch]: time used {0}s'.format(time.clock()-t1))
 		return code
 
 	def _start(self):
@@ -163,7 +159,7 @@ class Node:
 		else:
 			return join(self.dirname,query)
 
-	def _handle(self,query):
+	def _handle(self,query,starturl):
 		# query like  './share/11.txt' or '11.txt'
 		mylogger.info('-'*20)
 		mylogger.info('[handle]: begin')
@@ -175,8 +171,10 @@ class Node:
 		if not inside(self.dirname,filepath):
 			mylogger.info('[handle]: not inside')
 			return ACCESS_DENIED,None
+		if starturl == self.url:
+			mylogger.info('[handle]: already exist')
+			return ALREADY_EXIST,None
 		mylogger.info('[handle]: success')
-		# read file
 		mylogger.info('[handle]: reading {0} ...'.format(filepath))
 		t1 = time.clock()
 		data = readfile_asbinary_xmlrpc(filepath)
@@ -197,7 +195,7 @@ class Node:
 			mylogger.info('[broadcast]: Connecting from {0} to {1}'.format(self.url,other))
 			mylogger.info('*'*80)
 			try:
-				code,data = s.query(query,history)
+				code,data = s.query(query,starturl,history)
 				mylogger.info('[broadcast]: query return code {0}'.format(code))
 				if code == SUCCESS:
 					mylogger.info('[broadcast]: query SUCCESS!!!')
