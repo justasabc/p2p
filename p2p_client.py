@@ -7,7 +7,7 @@ import socket
 import argparse
 import logging
 # by kzl
-from settings import mylogger,NOT_EXIST,ACCESS_DENIED,SUCCESS,PORT,SHARED_FOLDER,SERVER_START_TIME,SECRET_LENGTH,IPS_FILE
+from settings import mylogger,NOT_EXIST,ACCESS_DENIED,ALREADY_EXIST,SUCCESS,PORT,SHARED_FOLDER,SERVER_START_TIME,SECRET_LENGTH,IPS_FILE
 from utils import randomstring,generate_urls
 from p2p_server import ListableNode
 # gui
@@ -186,13 +186,19 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 			msg = 'Please enter query file'
 			self.statusbar.showMessage(msg)
 			return
+		# add statusbar messge for fetching file
+		msg = "Fetching [{0}]...".format(arg)
+		self.statusbar.showMessage(msg)
+		# use NodeService
 		code = NodeService.fetch(self,arg)
 		if code == SUCCESS:
-			msg ="Fetch file successfully"
+			msg ="Fetch successfully for [{0}]".format(arg)
 		elif code == ACCESS_DENIED:
-			msg ="Access denied"
+			msg ="Access denied for [{0}]".format(arg)
+		elif code == NOT_EXIST:
+			msg ="Not exist for [{0}]".formaat(arg)
 		else:
-			msg ="File not exist"
+			msg = "Already exist for [{0}]".format(arg)
 		self.statusbar.showMessage(msg)
 	
 	def onListItemClicked(self,value):
@@ -225,11 +231,13 @@ class ConsoleClient(NodeService,Cmd):
 			return
 		code = NodeService.fetch(self,arg)
 		if code == SUCCESS:
-			msg ="###[do_fetch]: Fetch file successfully"
+			msg ="###[do_fetch]: Fetch successfully for [{0}]".format(arg)
 		elif code == ACCESS_DENIED:
-			msg ="###[do_fetch]: Access denied"
+			msg ="###[do_fetch]: Access denied for [{0}]".format(arg)
+		elif code == NOT_EXIST:
+			msg ="###[do_fetch]: Not exist for [{0}]".formaat(arg)
 		else:
-			msg ="###[do_fetch]: File not exist"
+			msg = "###[do_fetch]: Already exist for [{0}]".format(arg)
 		print(msg)
 
 	def do_list(self,arg):
