@@ -187,7 +187,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 			self.statusbar.showMessage(msg)
 			return
 		# add statusbar messge for fetching file
-		msg = "Fetching [{0}]...".format(arg)
+		msg = "Fetching [{0}].......".format(arg)
 		self.statusbar.showMessage(msg)
 		# use NodeService
 		code = NodeService.fetch(self,arg)
@@ -196,7 +196,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		elif code == ACCESS_DENIED:
 			msg ="Access denied for [{0}]".format(arg)
 		elif code == NOT_EXIST:
-			msg ="Not exist for [{0}]".formaat(arg)
+			msg ="Not exist for [{0}]".format(arg)
 		else:
 			msg = "Already exist for [{0}]".format(arg)
 		self.statusbar.showMessage(msg)
@@ -235,7 +235,7 @@ class ConsoleClient(NodeService,Cmd):
 		elif code == ACCESS_DENIED:
 			msg ="###[do_fetch]: Access denied for [{0}]".format(arg)
 		elif code == NOT_EXIST:
-			msg ="###[do_fetch]: Not exist for [{0}]".formaat(arg)
+			msg ="###[do_fetch]: Not exist for [{0}]".format(arg)
 		else:
 			msg = "###[do_fetch]: Already exist for [{0}]".format(arg)
 		print(msg)
