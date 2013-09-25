@@ -179,7 +179,7 @@ class Node:
 		# read file
 		mylogger.info('[handle]: reading {0} ...'.format(filepath))
 		t1 = time.clock()
-		data = files.readfile_asbinary_xmlrpc(filepath)
+		data = readfile_asbinary_xmlrpc(filepath)
 		mylogger.info('[handle]: reading finished'.format(filepath))
 		mylogger.info('[handle]: time used {0}s'.format(time.clock()-t1))
 		return SUCCESS,data
@@ -235,7 +235,7 @@ class ListableNode(Node):
 		list files in local node
 		"""
 		mylogger.info('[list]: list files in {0}'.format(self.url))
-		return files.list_all_files(self.dirname)
+		return list_all_files(self.dirname)
 	
 	def _listother(self,other):
 		"""
