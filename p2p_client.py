@@ -46,15 +46,19 @@ class NodeService():
 		self.server.inform(True)
 
 	def fetch(self,query):
+		# fetch file from available node
 		return self.server.fetch(query,self.secret)
 
 	def list(self):
+		# list files in local node
 		return self.server.list()
 
 	def listall(self):
+		# list files in all nodes
 		return self.server.listall()
 	
 	def geturl(self):
+		# get url of local node
 		return self.server.geturl()
 
 	def stop(self):
