@@ -1,6 +1,6 @@
 from xmlrpclib import ServerProxy
 from cmd import Cmd
-from threading import Thread
+from threading import Thread,Event
 from time import sleep
 import sys
 import socket
@@ -21,30 +21,35 @@ class NodeService():
 		self.ipsfile = ipsfile
 		# save server of this node
 		self.server = None
+		# event indicate whether server node is running
+		self.event = Event() # flag is false by default
 		
 	def start(self):
-		self.secret = randomstring(SECRET_LENGTH)
-		# start node server in a seprate thread
-		n = ListableNode(self.port,self.dirname,self.secret)
-		# node's start method may throw exception
-		t = Thread(target=n._start)
-		# true: thread stopped once main thread exit
-		# false: thread still run when main thread exit, then we have to CRLT+Z to stop thread running
-		t.setDaemon(1)
-		t.start()
-		# force main thread to sleep until node server is started
-		sleep(SERVER_START_TIME)
-		# if node server not running ,the exit
-		if not n.running:
+		try:
+			self.secret = randomstring(SECRET_LENGTH)
+			# start node server in a seprate thread
+			n = ListableNode(self.port,self.dirname,self.secret,self.event)
+			# node's start method may throw exception
+			t = Thread(target=n._start)
+			# true: thread stopped once main thread exit
+			# false: thread still run when main thread exit, then we have to CRLT+Z to stop thread running
+			t.setDaemon(1)
+			t.start()
+			# block main thread until node server is started
+			if not self.event.wait(3):
+				sys.exit()
+			self.server = ServerProxy(n.url,allow_none=True)
+			# add other to myself
+			for url in generate_urls(self.ipsfile):
+				self.server.addurl(url)
+			# inform others that myself is online
+			# add myself to others
+			self.server.inform(True)
+		except Exception, e:
+			mylogger.error(e)
+			mylogger.error('[start]: exception')
 			sys.exit()
-		self.server = ServerProxy(n.url,allow_none=True)
-		# add other to myself
-		for url in generate_urls(self.ipsfile):
-			self.server.addurl(url)
-		# inform others that myself is online
-		# add myself to others
-		self.server.inform(True)
-
+	
 	def fetch(self,query):
 		# fetch file from available node
 		return self.server.fetch(query,self.secret)
@@ -182,7 +187,9 @@ class GuiClient(NodeService,QtGui.QMainWindow):
         	reply = QtGui.QMessageBox.question(self, 'Message', "Are you sure to stop?", QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.Yes) 
         	if reply == QtGui.QMessageBox.Yes:
 			# when exit,inform other nodes 
-			mylogger.info('###[closeEvent]: program is going to exit... ')
+			msg = ('###[closeEvent]: program is going to exit... ')
+			mylogger.info(msg)
+			print(msg)
 			NodeService.stop(self)
             		event.accept()
        		else:

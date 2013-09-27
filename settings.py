@@ -4,8 +4,8 @@ import SimpleXMLRPCServer
 # settings for server and client
 
 #logger
-#logging.basicConfig(level = logging.DEBUG)
-logging.basicConfig(filename='default.log',level = logging.DEBUG)
+logging.basicConfig(level = logging.DEBUG)
+#logging.basicConfig(filename='default.log',level = logging.DEBUG)
 #logging.basicConfig(filename='p2p.log',level=logging.DEBUG,format='%(lev        elname)s %(asctime)s %(message)s')
 mylogger = logging.getLogger('xxx')
 
@@ -20,7 +20,7 @@ SUCCESS = 2
 # settings for ip and port
 # http://192.168.1.200:12345
 URL_PREFIX = "http://"
-PORT=31111 
+PORT=11111 
 SHARED_FOLDER = "./share/"
 
 # settings for client
