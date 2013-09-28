@@ -12,6 +12,17 @@ from utils import inside,getport
 from files import list_all_files,savefile_frombinary_xmlrpc,readfile_asbinary_xmlrpc
 from threads import SaveFileThread
 
+class FileInfo():
+	"""
+	class for storing file info
+	"""
+	def __init__(self,nodeurl,filename,filepath,filesize,filedate):
+		self.nodeurl = nodeurl
+		self.filename = filename
+		self.filepath = filepath
+		self.filesize = filesize
+		self.filedate = filedate
+
 class Node:
 	"""
 	a simple node class
@@ -24,8 +35,11 @@ class Node:
 		self.known = set()
 		# indicate whether node server is running
 		self.event_running = event_running
-		# store local node server
+		# store local node server for later shutdown
 		self.local_server = None
+		# NEW variables
+		self.local_files = []
+		self.remote_files = []
 
 	def _start(self):
 		try:
