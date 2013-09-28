@@ -19,21 +19,20 @@ class NodeServerThread(Thread):
 	"""
 	thread for starting and stopping node server
 	"""
-	def __init__(self,name,port,dirname,event_running,event_need_exit):
+	def __init__(self,name,port,dirname,secret,event_running):
 		super(NodeServerThread,self).__init__()
 		self.name = name
 		self.daemon = True
 		self.port = port
 		self.dirname = dirname
+		self.secret = secret
 		self.event_running = event_running
-		self.event_need_exit = event_need_exit
 		# server_node
 		self.server_node = None
 		
 	def run(self):
 		mylogger.info('[NodeServerThread]: {0} starting...'.format(self.name))
-		self.secret = randomstring(SECRET_LENGTH)
-		self.server_node = ListableNode(self.port,self.dirname,self.secret,self.event_running,self.event_need_exit)
+		self.server_node = ListableNode(self.port,self.dirname,self.secret,self.event_running)
 		# start node server
 		self.server_node._start()
 
@@ -48,13 +47,14 @@ class NodeService():
 	node service: start stop list listall fetch 
 	"""	
 	def __init__(self,port,dirname,ipsfile):
-		self.server = None
+		self.secret = randomstring(SECRET_LENGTH)
 		self.ipsfile = ipsfile
-		# event indicate whether server node is running or need to exit
+		# indicate whether node server is running
 		self.event_running= Event() # flag is false by default
-		self.event_need_exit= Event() # flag is false by default
-		
-		self.server_thread = NodeServerThread('Thread-SERVER',port,dirname,self.event_running,self.event_need_exit)
+		# server thread instance
+		self.server_thread = NodeServerThread('Thread-SERVER',port,dirname,self.secret,self.event_running)
+		# node server proxy for client use
+		self.server = None
 
 	"""
 	start NodeServerThread in child thread,and connect to server in main thread 
@@ -75,7 +75,7 @@ class NodeService():
 		mylogger.info('[start]: Connected to server in Main Thread')
 		# add others to myself
 		for url in generate_urls(self.ipsfile):
-			self.server.addurl(url)
+			self.server.add(url)
 		# inform others that myself is online
 		# add myself to others
 		self.server.inform(True)

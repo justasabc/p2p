@@ -18,15 +18,15 @@ class Node:
 	"""
 	a simple node class
 	"""
-	def __init__(self,port,dirname,secret,event_running,event_need_exit):
+	def __init__(self,port,dirname,secret,event_running):
 		self.port = port
 		self.url = "{0}{1}:{2}".format(URL_PREFIX,IP_LAN,port)
 		self.dirname = dirname
 		self.secret = secret
 		# store all known urls in set (including self)
 		self.known = set()
+		# indicate whether node server is running
 		self.event_running = event_running
-		self.event_need_exit = event_need_exit
 		# store local node server
 		self.local_server = None
 
@@ -64,19 +64,19 @@ class Node:
 		else:
 			return join(self.dirname,query)
 
-	def addurl(self,other):
+	def add(self,other):
 		"""
 		add other to myself's known set
 		"""
-		mylogger.info('[addurl]: hello {0}'.format(other))
+		mylogger.info('[add]: hello {0}'.format(other))
 		self.known.add(other)
 		return SUCCESS
 
-	def removeurl(self,other):
+	def remove(self,other):
 		"""
 		remove other from myself's known set
 		"""
-		mylogger.info('[removeurl]: byebye {0}'.format(other))
+		mylogger.info('[remove]: byebye {0}'.format(other))
 		self.known.remove(other)
 		return SUCCESS
 
@@ -90,7 +90,7 @@ class Node:
 				continue
 			s = ServerProxy(other)
 			try:
-				s.addurl(self.url)
+				s.add(self.url)
 			except Fault,f:
 				mylogger.warn(f)
 				mylogger.warn('[inform]: {0} started but inform failed'.format(other))
@@ -108,7 +108,7 @@ class Node:
 				continue
 			s = ServerProxy(other)
 			try:
-				s.removeurl(self.url)
+				s.remove(self.url)
 			except Fault,f:
 				mylogger.warn(f)
 				mylogger.warn('[inform]: {0} started but inform failed'.format(other))
@@ -232,8 +232,8 @@ class ListableNode(Node):
 	"""
 	node that we can list all available files in dirname
 	"""
-	def __init__(self,port,dirname,secret,event_running,event_need_exit):
-		Node.__init__(self,port,dirname,secret,event_running,event_need_exit)
+	def __init__(self,port,dirname,secret,event_running):
+		Node.__init__(self,port,dirname,secret,event_running)
 
 	def geturl(self):
 		"""
