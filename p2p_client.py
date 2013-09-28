@@ -262,7 +262,6 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		code = NodeService.fetch(self,arg)
 		if code == SUCCESS:
 			msg ="Fetch successfully for [{0}]".format(arg)
-			self.updateList()
 		elif code == ACCESS_DENIED:
 			msg ="Access denied for [{0}]".format(arg)
 		elif code == NOT_EXIST:
@@ -274,6 +273,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 	
 	def onListItemClicked(self,value):
 		self.main_widget.le.setText(value.text())
+		self.statusbar.showMessage('')
 		
 def main_gui():
 	app = QtGui.QApplication(sys.argv)
