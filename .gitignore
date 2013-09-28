@@ -1,5 +1,6 @@
 backup
 *.log
 *.pyc
+*.swp
 share
 test

@@ -144,8 +144,13 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		QtGui.QMainWindow.__init__(self)
 		# start node service
 		NodeService.start(self)
+		# init params
+		self.initParams()
 		# init gui
 		self.initUI()
+
+	def initParams(self):
+		self.localurl = NodeService.geturl(self)
 
 	def initUI(self):
 		mylogger.info("[initUI]...")
@@ -194,10 +199,9 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 	
 	def updateList(self):
 		mylogger.info("[updateList]...")
-		localurl = NodeService.geturl(self)
 		# update list,only show files from other node
 		for url,lst in NodeService.listall(self):
-			if localurl == url:
+			if self.localurl == url:
 				continue
 			for f in lst:
 				self.main_widget.lb.addItem(f)
@@ -258,6 +262,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		code = NodeService.fetch(self,arg)
 		if code == SUCCESS:
 			msg ="Fetch successfully for [{0}]".format(arg)
+			self.updateList()
 		elif code == ACCESS_DENIED:
 			msg ="Access denied for [{0}]".format(arg)
 		elif code == NOT_EXIST:
