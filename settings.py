@@ -7,7 +7,7 @@ import SimpleXMLRPCServer
 logging.basicConfig(level = logging.DEBUG)
 #logging.basicConfig(filename='default.log',level = logging.DEBUG)
 #logging.basicConfig(filename='p2p.log',level=logging.DEBUG,format='%(lev        elname)s %(asctime)s %(message)s')
-mylogger = logging.getLogger('xxx')
+mylogger = logging.getLogger('KZL')
 
 SimpleXMLRPCServer.allow_reuse_address = 1
 MAX_HISTORY_LENGTH = 6
@@ -32,8 +32,8 @@ IPS_FILE= "./ips.txt"
 CHUNK_SIZE = 1024*64
 
 # settings for GUI
-WIN_WIDTH = 512
-WIN_HEIGHT = 300
+WIN_WIDTH = 1024
+WIN_HEIGHT = 600
 ICON_FLODER = './icon/'
 ICON_APP = ICON_FLODER+'apple.png'
 ICON_FETCH = ICON_FLODER+'fetch.png'

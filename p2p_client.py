@@ -111,7 +111,7 @@ class NodeService():
 
 class GuiWidget(QtGui.QWidget):
 	"""
-	gui widget: QLineEdit QPushButton QTextEdit
+	gui widget: 
 	"""	
 	def __init__(self,parent):
 		super(GuiWidget,self).__init__(parent)
@@ -119,18 +119,31 @@ class GuiWidget(QtGui.QWidget):
 
 	def initUI(self):
 		# controls and layouts
+		hbox1 = QtGui.QHBoxLayout()
 		self.le = QtGui.QLineEdit()
 		self.btn = QtGui.QPushButton('Fetch')
+		hbox1.addWidget(self.le)
+		hbox1.addWidget(self.btn)
 		
-		hbox = QtGui.QHBoxLayout()
-		hbox.addWidget(self.le)
-		hbox.addWidget(self.btn)
+		vbox1 = QtGui.QVBoxLayout()
+		self.label_local = QtGui.QLabel('local')
+		self.list_local = QtGui.QListWidget()
+		vbox1.addWidget(self.label_local)
+		vbox1.addWidget(self.list_local)
 		
-		self.lb = QtGui.QListWidget()
+		vbox2 = QtGui.QVBoxLayout()
+		self.label_remote = QtGui.QLabel('remote')
+		self.list_remote = QtGui.QListWidget()
+		vbox2.addWidget(self.label_remote)
+		vbox2.addWidget(self.list_remote)
 		
+		hbox2 = QtGui.QHBoxLayout()
+		hbox2.addLayout(vbox1)
+		hbox2.addLayout(vbox2)
+
 		vbox = QtGui.QVBoxLayout(self)
-		vbox.addLayout(hbox)
-		vbox.addWidget(self.lb)
+		vbox.addLayout(hbox1)
+		vbox.addLayout(hbox2)
 	
 		# set layout
 		self.setLayout(vbox)
@@ -151,6 +164,8 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 
 	def initParams(self):
 		self.localurl = NodeService.geturl(self)
+		self.listfiles_local = []
+		self.listfiles_remote = []
 
 	def initUI(self):
 		mylogger.info("[initUI]...")
@@ -180,7 +195,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		self.main_widget = GuiWidget(self)
 		self.main_widget.le.textChanged[str].connect(self.onTextChanged)
 		self.main_widget.btn.clicked.connect(self.onFetchHandler)
-		self.main_widget.lb.itemClicked.connect(self.onListItemClicked)
+		self.main_widget.list_remote.itemClicked.connect(self.onListItemClicked)
 		# set central widget for main window
 		self.setCentralWidget(self.main_widget)
 
@@ -196,15 +211,26 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		self.setWindowTitle('File Sharing Client')
 		self.setWindowIcon(QtGui.QIcon(ICON_APP))
 		self.show()
+
+	def _updateLocalList(self):
+		mylogger.info("[_updateLocalList]...")
+		for f in self.listfiles_local:
+			self.main_widget.list_local.addItem(f)
+
+	def _updateRemoteList(self):
+		mylogger.info("[_updateRemoteList]...")
+		for f in self.listfiles_remote:
+			self.main_widget.list_remote.addItem(f)
 	
 	def updateList(self):
 		mylogger.info("[updateList]...")
-		# update list,only show files from other node
 		for url,lst in NodeService.listall(self):
 			if self.localurl == url:
-				continue
-			for f in lst:
-				self.main_widget.lb.addItem(f)
+				self.listfiles_local = lst
+			else:
+				self.listfiles_remote.extend(lst)
+		self._updateLocalList()
+		self._updateRemoteList()
 
 	def setFetchEnabled(self,enabled):
 		self.fetchAction.setEnabled(enabled)
