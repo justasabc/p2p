@@ -9,22 +9,25 @@ import socket
 import argparse
 import logging
 # by kzl
-from settings import mylogger,NOT_EXIST,ACCESS_DENIED,ALREADY_EXIST,SUCCESS,PORT,SHARED_FOLDER,SERVER_START_TIME,SECRET_LENGTH,IPS_FILE
-from utils import randomstring,generate_urls
+from settings import mylogger,NOT_EXIST,ACCESS_DENIED,ALREADY_EXIST,SUCCESS,PORT,SHARED_FOLDER,SERVER_START_TIME,SECRET_LENGTH,IPS_FILE,URL_PREFIX
+from utils import randomstring,generate_urls,get_lan_ip,geturl
 from p2p_server import ListableNode
 # gui
 from PyQt4 import QtGui,QtCore
 from settings import WIN_WIDTH,WIN_HEIGHT,ICON_APP,ICON_FETCH,ICON_QUIT
 
+IP_LAN = get_lan_ip()
+SERVER_URL = geturl(URL_PREFIX,IP_LAN,PORT)
+
 class NodeServerThread(Thread):
 	"""
 	thread for starting and stopping node server
 	"""
-	def __init__(self,name,port,dirname,secret,event_running):
+	def __init__(self,name,url,dirname,secret,event_running):
 		super(NodeServerThread,self).__init__()
 		self.name = name
 		self.daemon = True
-		self.port = port
+		self.url = url
 		self.dirname = dirname
 		self.secret = secret
 		self.event_running = event_running
@@ -33,7 +36,7 @@ class NodeServerThread(Thread):
 		
 	def run(self):
 		mylogger.info('[NodeServerThread]: {0} starting...'.format(self.name))
-		self.server_node = ListableNode(self.port,self.dirname,self.secret,self.event_running)
+		self.server_node = ListableNode(self.url,self.dirname,self.secret,self.event_running)
 		# start node server
 		self.server_node._start()
 
@@ -47,15 +50,15 @@ class NodeService():
 	"""
 	node service: start stop list listall fetch 
 	"""	
-	def __init__(self,port,dirname,ipsfile):
-		self.port = port
+	def __init__(self,url,dirname,ipsfile):
+		self.url = url
 		self.dirname = dirname
 		self.secret = randomstring(SECRET_LENGTH)
 		self.ipsfile = ipsfile
 		# indicate whether node server is running
 		self.event_running= Event() # flag is false by default
 		# server thread instance
-		self.server_thread = NodeServerThread('Thread-SERVER',self.port,self.dirname,self.secret,self.event_running)
+		self.server_thread = NodeServerThread('Thread-SERVER',self.url,self.dirname,self.secret,self.event_running)
 		# node server proxy for client use
 		self.server = None
 
@@ -79,9 +82,7 @@ class NodeService():
 			sys.exit()
 		mylogger.info('[start]: NodeServerThread started') 
 		mylogger.info('[start]: Connecting to server in Main Thread...')
-		# get url from server_node
-		url = self.server_thread.server_node.url
-		self.server = ServerProxy(url,allow_none=True)
+		self.server = ServerProxy(self.url,allow_none=True)
 		mylogger.info('[start]: Connected to server in Main Thread')
 		# add others to myself
 		for url in generate_urls(self.ipsfile):
@@ -117,8 +118,7 @@ class NodeService():
 	
 	def geturl(self):
 		# get url of local node
-		return self.server.geturl()
-
+		return self.url
 
 class GuiWidget(QtGui.QWidget):
 	"""
@@ -132,9 +132,11 @@ class GuiWidget(QtGui.QWidget):
 		# controls and layouts
 		hbox1 = QtGui.QHBoxLayout()
 		self.le = QtGui.QLineEdit()
-		self.btn = QtGui.QPushButton('Fetch')
+		self.btn_fetch = QtGui.QPushButton('Fetch File')
+		self.btn_update = QtGui.QPushButton('Update List')
 		hbox1.addWidget(self.le)
-		hbox1.addWidget(self.btn)
+		hbox1.addWidget(self.btn_fetch)
+		hbox1.addWidget(self.btn_update)
 		
 		vbox1 = QtGui.QVBoxLayout()
 		self.label_local = QtGui.QLabel('local')
@@ -163,8 +165,8 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 	"""
 	a simple client with gui
 	"""
-	def __init__(self,port,dirname,ipsfile):
-		NodeService.__init__(self,port,dirname,ipsfile)
+	def __init__(self,url,dirname,ipsfile):
+		NodeService.__init__(self,url,dirname,ipsfile)
 		QtGui.QMainWindow.__init__(self)
 		# start node service
 		NodeService.start(self)
@@ -205,7 +207,8 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		# GuiWidget 
 		self.main_widget = GuiWidget(self)
 		self.main_widget.le.textChanged[str].connect(self.onTextChanged)
-		self.main_widget.btn.clicked.connect(self.onFetchHandler)
+		self.main_widget.btn_fetch.clicked.connect(self.onFetchHandler)
+		self.main_widget.btn_update.clicked.connect(self.onUpdateHandler)
 		self.main_widget.list_remote.itemClicked.connect(self.onListItemClicked)
 		# set central widget for main window
 		self.setCentralWidget(self.main_widget)
@@ -223,6 +226,22 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		self.setWindowIcon(QtGui.QIcon(ICON_APP))
 		self.show()
 
+	def onUpdateHandler(self,value):
+		mylogger.info("[onUpdateHandler]...")
+		self.updateList()
+
+	def _updateLocalLabel(self):
+		mylogger.info("[_updateLocalLabel]...")
+		# update local label	
+		str_local = "local@{0} [total {1} files]".format(self.localurl,len(self.listfiles_local))
+		self.main_widget.label_local.setText(str_local)
+
+	def _updateRemoteLabel(self):
+		mylogger.info("[_updateRemoteLabel]...")
+		# update remote label	
+		str_remote = "remote [total {0} files]".format(len(self.listfiles_remote))
+		self.main_widget.label_remote.setText(str_remote)
+
 	def _updateLocalList(self):
 		mylogger.info("[_updateLocalList]...")
 		self.main_widget.list_local.clear()
@@ -237,17 +256,21 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 	
 	def updateList(self):
 		mylogger.info("[updateList]...")
+		self.listfiles_remote = []
 		for url,lst in NodeService.listall(self):
 			if self.localurl == url:
 				self.listfiles_local = lst
 			else:
 				self.listfiles_remote.extend(lst)
+		self._updateLocalLabel()
+		self._updateRemoteLabel()
 		self._updateLocalList()
 		self._updateRemoteList()
+		mylogger.info("[updateList] finished")
 
 	def setFetchEnabled(self,enabled):
 		self.fetchAction.setEnabled(enabled)
-		self.main_widget.btn.setEnabled(enabled)
+		self.main_widget.btn_fetch.setEnabled(enabled)
 
 	def center(self):
 		mbr = self.frameGeometry()
@@ -314,10 +337,12 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 	def _onFetchSuccessfully(self,arg):
 		# when fetch successfully, need to update local list
 		# update local list
-		filepath = NodeService._getfilepath(arg) 
+		filepath = NodeService._getfilepath(self,arg) 
 		self.listfiles_local.append(filepath)
+		# update local list
 		self.main_widget.list_local.addItem(filepath)
-		# self._updateLocalList()
+		# update local label
+		self._updateLocalLabel()
 
 	def onListItemClicked(self,value):
 		self.main_widget.le.setText(value.text())
@@ -325,7 +350,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		
 def main_gui():
 	app = QtGui.QApplication(sys.argv)
-	client = GuiClient(PORT,SHARED_FOLDER,IPS_FILE)
+	client = GuiClient(SERVER_URL,SHARED_FOLDER,IPS_FILE)
 	sys.exit(app.exec_())
 
 class ConsoleClient(NodeService,Cmd):
@@ -334,8 +359,8 @@ class ConsoleClient(NodeService,Cmd):
 	"""
 	prompt = '>'
 
-	def __init__(self,port,dirname,ipsfile):
-		NodeService.__init__(self,port,dirname,ipsfile)
+	def __init__(self,url,dirname,ipsfile):
+		NodeService.__init__(self,url,dirname,ipsfile)
 		Cmd.__init__(self)
 		# start node service
 		NodeService.start(self)
@@ -397,7 +422,7 @@ class ConsoleClient(NodeService,Cmd):
 	do_EOF = do_quit = do_exit;
 
 def main_console():
-	client = ConsoleClient(PORT,SHARED_FOLDER,IPS_FILE)
+	client = ConsoleClient(SERVER_URL,SHARED_FOLDER,IPS_FILE)
 	client.cmdloop()
 
 # argparse

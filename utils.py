@@ -76,7 +76,6 @@ def get_wan_ip():
 	except Exception, e:
 		print e
 		return ""
-	
 
 def inside(dirname,filepath):
 	"""
@@ -88,6 +87,13 @@ def inside(dirname,filepath):
 	# make sure absdir2 end with '/'
 	absdir2 = join(absdir,'')
 	return absfile.startswith(absdir2)
+
+def geturl(prefix,ip,port):
+	"""
+        get url like http://192.168.1.200:5555
+	"""
+	url = "{0}{1}:{2}".format(prefix,ip,port)
+	return url
 
 def getport(url):
         """

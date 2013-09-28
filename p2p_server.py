@@ -8,19 +8,16 @@ import thread
 from threading import Thread,Event
 # by kzl
 from settings import mylogger,MAX_HISTORY_LENGTH,NOT_EXIST,ACCESS_DENIED,ALREADY_EXIST,SUCCESS,URL_PREFIX,PORT
-from utils import inside,get_lan_ip
+from utils import inside,getport
 from files import list_all_files,savefile_frombinary_xmlrpc,readfile_asbinary_xmlrpc
 from threads import SaveFileThread
-
-IP_LAN = get_lan_ip()
 
 class Node:
 	"""
 	a simple node class
 	"""
-	def __init__(self,port,dirname,secret,event_running):
-		self.port = port
-		self.url = "{0}{1}:{2}".format(URL_PREFIX,IP_LAN,port)
+	def __init__(self,url,dirname,secret,event_running):
+		self.url = url
 		self.dirname = dirname
 		self.secret = secret
 		# store all known urls in set (including self)
@@ -32,7 +29,7 @@ class Node:
 
 	def _start(self):
 		try:
-			t = ('',self.port)
+			t = ('',getport(self.url))
 			# in both server and client set allow_none=True
 			self.local_server = SimpleXMLRPCServer(t,allow_none=True,logRequests=False)
 			self.local_server.register_instance(self)
@@ -53,6 +50,9 @@ class Node:
 			# event_running must be false
 
 	def _shutdown(self):
+		"""
+		shut down node server
+		"""
 		mylogger.warn('[_shutdown]: shutdown server...')
 		self.local_server.shutdown()
 
@@ -224,15 +224,8 @@ class ListableNode(Node):
 	"""
 	node that we can list all available files in dirname
 	"""
-	def __init__(self,port,dirname,secret,event_running):
-		Node.__init__(self,port,dirname,secret,event_running)
-
-	def geturl(self):
-		"""
-		return url of local node
-		"""
-		mylogger.info('[geturl]: url is {0}'.format(self.url))
-		return self.url
+	def __init__(self,url,dirname,secret,event_running):
+		Node.__init__(self,url,dirname,secret,event_running)
 
 	def list(self):
 		"""
