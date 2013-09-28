@@ -7,45 +7,26 @@ import socket
 import thread
 from threading import Thread,Event
 # by kzl
+from settings import mylogger,MAX_HISTORY_LENGTH,NOT_EXIST,ACCESS_DENIED,ALREADY_EXIST,SUCCESS,URL_PREFIX,PORT
 from utils import inside,get_lan_ip
 from files import list_all_files,savefile_frombinary_xmlrpc,readfile_asbinary_xmlrpc
-from settings import mylogger,MAX_HISTORY_LENGTH,NOT_EXIST,ACCESS_DENIED,ALREADY_EXIST,SUCCESS,URL_PREFIX,PORT
+from threads import SaveFileThread
 
 IP_LAN = get_lan_ip()
-
-class SaveFileThread(Thread):
-	"""
-	background(daemon) thread for save file
-	"""
-	def __init__(self,name,filepath,data):
-		Thread.__init__(self)
-		self.name = name
-		self.daemon = True
-		self.filepath = filepath
-		self.data = data
-
-	def run(self):
-		mylogger.info('[SaveFileThread]:Starting {0}'.format(self.name))
-		mylogger.info('[SaveFileThread]: saving to {0} ...'.format(self.filepath))
-		t1 = time.clock()
-		savefile_frombinary_xmlrpc(self.filepath,self.data)
-		mylogger.info('[SaveFileThread]: time used {0}s'.format(time.clock()-t1))
-		mylogger.info('[SaveFileThread]:Exiting {0}'.format(self.name))
-
 
 class Node:
 	"""
 	a simple node class
 	"""
-	def __init__(self,port,dirname,secret,event):
+	def __init__(self,port,dirname,secret,event_running,event_need_exit):
 		self.port = port
 		self.url = "{0}{1}:{2}".format(URL_PREFIX,IP_LAN,port)
 		self.dirname = dirname
 		self.secret = secret
 		# store all known urls in set (including self)
 		self.known = set()
-		# event to indicate whether thread starts running
-		self.event = event
+		self.event_running = event_running
+		self.event_need_exit = event_need_exit
 
 	def _start(self):
 		try:
@@ -56,19 +37,21 @@ class Node:
 			msg ="[_start]: Server started at {0}...".format(self.url)
 			print(msg)
 			mylogger.info(msg)
-			self.event.set() # set flag to true
-			s.serve_forever()
+			while not self.event_need_exit.is_set():
+				self.event_running.set() # set flag to true
+				s.serve_forever()
+			else:
+				mylogger.info('[_start]: event_need_exit set to true!!!')
+				mylogger.info('[_start]: Server stopped at {0} peacefully!!!'.format(self.url))
 		except socket.error,e:
 			mylogger.warn(e)
 			mylogger.warn('[_start]: socket error')
-			self.event.clear() # set flag to false
-			return
+			self.event_running.clear() # set flag to false
 		except Exception, e:
 			mylogger.warn(e)
 			mylogger.warn('[_start]: except')
 			mylogger.warn('[_start]: Server stopped at {0}'.format(self.url))
-			self.event.clear() # set flag to false
-			return
+			self.event_running.clear() # set flag to false
 
 	def _getfilepath(self,query):
 		# query like  './share/11.txt' or '11.txt'
@@ -140,8 +123,6 @@ class Node:
 			self._online()
 		else:
 			self._offline()
-			self.event.clear() # set flag to false
-			mylogger.info('thread exiting...')
 		mylogger.info('[inform]: knows {0}'.format(self.known))
 		return SUCCESS
 	
@@ -156,7 +137,7 @@ class Node:
 		if code == SUCCESS:
 			filepath = self._getfilepath(query)
 			# create a background(daemon) thread to save file
-			thread = SaveFileThread('Thread-1',filepath,data)
+			thread = SaveFileThread('Thread-savefile',filepath,data)
 			thread.start()
 		return code
 
@@ -248,8 +229,8 @@ class ListableNode(Node):
 	"""
 	node that we can list all available files in dirname
 	"""
-	def __init__(self,port,dirname,secret,event):
-		Node.__init__(self,port,dirname,secret,event)
+	def __init__(self,port,dirname,secret,event_running,event_need_exit):
+		Node.__init__(self,port,dirname,secret,event_running,event_need_exit)
 
 	def geturl(self):
 		"""
@@ -298,7 +279,7 @@ class ListableNode(Node):
 		return url_list.items()
 
 def main():
-	n = Node(21111,'share/','')
+	n = Node(21111,'share/','',Event(),Event())
 	n._start()
 
 if __name__ =='__main__':

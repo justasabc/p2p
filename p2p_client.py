@@ -1,5 +1,6 @@
 from xmlrpclib import ServerProxy
 from cmd import Cmd
+import thread
 from threading import Thread,Event
 from time import sleep
 import sys
@@ -14,42 +15,93 @@ from p2p_server import ListableNode
 from PyQt4 import QtGui,QtCore
 from settings import WIN_WIDTH,WIN_HEIGHT,ICON_APP,ICON_FETCH,ICON_QUIT
 
-class NodeService():
-	def __init__(self,port,dirname,ipsfile):
+class NodeServerThread(Thread):
+	"""
+	thread for running node server
+	"""
+	def __init__(self,name,port,dirname,event_running,event_need_exit):
+		super(NodeServerThread,self).__init__()
+		self.name = name
+		self.daemon = True
 		self.port = port
 		self.dirname = dirname
-		self.ipsfile = ipsfile
-		# save server of this node
-		self.server = None
-		# event indicate whether server node is running
-		self.event = Event() # flag is false by default
+		self.event_running = event_running
+		self.event_need_exit = event_need_exit
+		# server_node
+		self.server_node = None
 		
-	def start(self):
+	def run(self):
+		mylogger.info('[NodeServerThread]: Starting {0}'.format(self.name))
+		self.secret = randomstring(SECRET_LENGTH)
+		self.server_node = ListableNode(self.port,self.dirname,self.secret,self.event_running,self.event_need_exit)
 		try:
-			self.secret = randomstring(SECRET_LENGTH)
-			# start node server in a seprate thread
-			n = ListableNode(self.port,self.dirname,self.secret,self.event)
 			# node's start method may throw exception
-			t = Thread(target=n._start)
-			# true: thread stopped once main thread exit
-			# false: thread still run when main thread exit, then we have to CRLT+Z to stop thread running
-			t.setDaemon(1)
-			t.start()
-			# block main thread until node server is started
-			if not self.event.wait(3):
-				sys.exit()
-			self.server = ServerProxy(n.url,allow_none=True)
-			# add other to myself
-			for url in generate_urls(self.ipsfile):
-				self.server.addurl(url)
-			# inform others that myself is online
-			# add myself to others
-			self.server.inform(True)
+			self.server_node._start()
 		except Exception, e:
 			mylogger.error(e)
-			mylogger.error('[start]: exception')
+			mylogger.error('[run]: ?????????????????????????exception')
+			thread.exit()
+
+class NodeClientThread(Thread):
+	def __init__(self,name):
+		super(NodeClientThread,self).__init__()
+		self.name = name
+		self.daemon = True
+		
+	def run(self):
+		mylogger.info('[NodeClientThread]: Starting {0}'.format(self.name))
+		sleep(1)
+		mylogger.info('[NodeClientThread]: Exiting {0}'.format(self.name))
+
+class NodeService():
+	"""
+	node service: start stop list listall fetch 
+	"""	
+	def __init__(self,port,dirname,ipsfile):
+		self.server = None
+		self.ipsfile = ipsfile
+		# event indicate whether server node is running or need to exit
+		self.event_running= Event() # flag is false by default
+		self.event_need_exit= Event() # flag is false by default
+		
+		self.server_thread = NodeServerThread('Thread-node server',port,dirname,self.event_running,self.event_need_exit)
+
+	"""
+	start NodeServerThread in child thread,and connect to server in main thread 
+	"""
+	def start(self):
+		mylogger.info('[start]: NodeService starting...')
+		# 1)start node server in child thread
+		self.server_thread.start()
+		# 2) connect to server in main thread
+		# block current thread until node server is started
+		if not self.event_running.wait(3):
 			sys.exit()
-	
+		mylogger.info('[start]: NodeServerThread started') 
+		mylogger.info('[start]: Connecting to server in Main Thread...')
+		# get url from server_node
+		url = self.server_thread.server_node.url
+		self.server = ServerProxy(url,allow_none=True)
+		mylogger.info('[start]: Connected to server in Main Thread')
+		# add others to myself
+		for url in generate_urls(self.ipsfile):
+			self.server.addurl(url)
+		# inform others that myself is online
+		# add myself to others
+		self.server.inform(True)
+		mylogger.info('[start]: NodeService started')
+
+	def stop(self):
+		mylogger.info('[stop]: NodeService stopping...')
+		# 1)inform others that myself is offline
+		self.server.inform(False)
+		# 2)stop node server thread
+		self.event_need_exit.set()
+		mylogger.info('[stop]: NodeService stopped')
+
+	"""
+	node server methods
+	"""
 	def fetch(self,query):
 		# fetch file from available node
 		return self.server.fetch(query,self.secret)
@@ -66,9 +118,6 @@ class NodeService():
 		# get url of local node
 		return self.server.geturl()
 
-	def stop(self):
-		# inform others that myself is offline
-		return self.server.inform(False)
 
 class GuiWidget(QtGui.QWidget):
 	"""
