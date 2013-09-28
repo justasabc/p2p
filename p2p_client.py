@@ -1,5 +1,6 @@
 from xmlrpclib import ServerProxy
 from cmd import Cmd
+from os.path import join
 import thread
 from threading import Thread,Event
 from time import sleep
@@ -47,14 +48,23 @@ class NodeService():
 	node service: start stop list listall fetch 
 	"""	
 	def __init__(self,port,dirname,ipsfile):
+		self.port = port
+		self.dirname = dirname
 		self.secret = randomstring(SECRET_LENGTH)
 		self.ipsfile = ipsfile
 		# indicate whether node server is running
 		self.event_running= Event() # flag is false by default
 		# server thread instance
-		self.server_thread = NodeServerThread('Thread-SERVER',port,dirname,self.secret,self.event_running)
+		self.server_thread = NodeServerThread('Thread-SERVER',self.port,self.dirname,self.secret,self.event_running)
 		# node server proxy for client use
 		self.server = None
+
+	def _getfilepath(self,query):
+		# query like  './share/11.txt' or '11.txt'
+		if query.startswith(self.dirname):
+			return query
+		else:
+			return join(self.dirname,query)
 
 	"""
 	start NodeServerThread in child thread,and connect to server in main thread 
@@ -94,7 +104,8 @@ class NodeService():
 	"""
 	def fetch(self,query):
 		# fetch file from available node
-		return self.server.fetch(query,self.secret)
+		filepath = self._getfilepath(query)
+		return self.server.fetch(filepath,self.secret)
 
 	def list(self):
 		# list files in local node
@@ -214,11 +225,13 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 
 	def _updateLocalList(self):
 		mylogger.info("[_updateLocalList]...")
+		self.main_widget.list_local.clear()
 		for f in self.listfiles_local:
 			self.main_widget.list_local.addItem(f)
 
 	def _updateRemoteList(self):
 		mylogger.info("[_updateRemoteList]...")
+		self.main_widget.list_remote.clear()
 		for f in self.listfiles_remote:
 			self.main_widget.list_remote.addItem(f)
 	
@@ -288,6 +301,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		code = NodeService.fetch(self,arg)
 		if code == SUCCESS:
 			msg ="Fetch successfully for [{0}]".format(arg)
+			self._onFetchSuccessfully(arg)
 		elif code == ACCESS_DENIED:
 			msg ="Access denied for [{0}]".format(arg)
 		elif code == NOT_EXIST:
@@ -297,6 +311,14 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		mylogger.info(msg)
 		self.statusbar.showMessage(msg)
 	
+	def _onFetchSuccessfully(self,arg):
+		# when fetch successfully, need to update local list
+		# update local list
+		filepath = NodeService._getfilepath(arg) 
+		self.listfiles_local.append(filepath)
+		self.main_widget.list_local.addItem(filepath)
+		# self._updateLocalList()
+
 	def onListItemClicked(self,value):
 		self.main_widget.le.setText(value.text())
 		self.statusbar.showMessage('')

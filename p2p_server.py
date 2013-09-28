@@ -1,6 +1,6 @@
 from SimpleXMLRPCServer import SimpleXMLRPCServer
 from xmlrpclib import ServerProxy,Fault,Binary
-from os.path import join,isfile
+from os.path import isfile
 import sys
 import time
 import socket
@@ -55,14 +55,6 @@ class Node:
 	def _shutdown(self):
 		mylogger.warn('[_shutdown]: shutdown server...')
 		self.local_server.shutdown()
-
-	def _getfilepath(self,query):
-		# query like  './share/11.txt' or '11.txt'
-		mylogger.info('[_getfilepath]: for query {0}'.format(query))
-		if query.startswith(self.dirname):
-			return query
-		else:
-			return join(self.dirname,query)
 
 	def add(self,other):
 		"""
@@ -130,6 +122,7 @@ class Node:
 		return SUCCESS
 	
 	def fetch(self,query,secret):
+		# query:  filepath
 		mylogger.info('-'*60)
 		mylogger.info('[fetch]: fetching from {0}'.format(self.url))
 		if secret != self.secret:
@@ -138,9 +131,8 @@ class Node:
 		mylogger.info('[fetch]: query return code {0}'.format(code))
 		mylogger.info("[fetch]: knows: {0}".format(self.known))
 		if code == SUCCESS:
-			filepath = self._getfilepath(query)
 			# create a background(daemon) thread to save file
-			thread = SaveFileThread('Thread-savefile',filepath,data)
+			thread = SaveFileThread('Thread-savefile',query,data)
 			thread.start()
 		return code
 
@@ -167,10 +159,10 @@ class Node:
 			return code,data
 
 	def _handle(self,query,starturl):
-		# query like  './share/11.txt' or '11.txt'
+		# query like  './share/11.txt' 
 		mylogger.info('-'*20)
 		mylogger.info('[handle]: begin')
-		filepath = self._getfilepath(query)
+		filepath = query # query is filepath
 		mylogger.info('[handle]: filepath is {0}'.format(filepath))
 		if not isfile(filepath):
 			mylogger.info('[handle]: not file')
