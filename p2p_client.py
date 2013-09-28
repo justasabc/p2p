@@ -17,7 +17,7 @@ from settings import WIN_WIDTH,WIN_HEIGHT,ICON_APP,ICON_FETCH,ICON_QUIT
 
 class NodeServerThread(Thread):
 	"""
-	thread for running node server
+	thread for starting and stopping node server
 	"""
 	def __init__(self,name,port,dirname,event_running,event_need_exit):
 		super(NodeServerThread,self).__init__()
@@ -31,27 +31,17 @@ class NodeServerThread(Thread):
 		self.server_node = None
 		
 	def run(self):
-		mylogger.info('[NodeServerThread]: Starting {0}'.format(self.name))
+		mylogger.info('[NodeServerThread]: {0} starting...'.format(self.name))
 		self.secret = randomstring(SECRET_LENGTH)
 		self.server_node = ListableNode(self.port,self.dirname,self.secret,self.event_running,self.event_need_exit)
-		try:
-			# node's start method may throw exception
-			self.server_node._start()
-		except Exception, e:
-			mylogger.error(e)
-			mylogger.error('[run]: ?????????????????????????exception')
-			thread.exit()
+		# start node server
+		self.server_node._start()
 
-class NodeClientThread(Thread):
-	def __init__(self,name):
-		super(NodeClientThread,self).__init__()
-		self.name = name
-		self.daemon = True
-		
-	def run(self):
-		mylogger.info('[NodeClientThread]: Starting {0}'.format(self.name))
-		sleep(1)
-		mylogger.info('[NodeClientThread]: Exiting {0}'.format(self.name))
+	def stop(self):
+		mylogger.info('[NodeServerThread] {0} stopping ...'.format(self.name))
+		# shutdown node server
+		self.server_node._shutdown()
+		mylogger.info('[NodeServerThread] {0} stopped'.format(self.name))
 
 class NodeService():
 	"""
@@ -64,7 +54,7 @@ class NodeService():
 		self.event_running= Event() # flag is false by default
 		self.event_need_exit= Event() # flag is false by default
 		
-		self.server_thread = NodeServerThread('Thread-node server',port,dirname,self.event_running,self.event_need_exit)
+		self.server_thread = NodeServerThread('Thread-SERVER',port,dirname,self.event_running,self.event_need_exit)
 
 	"""
 	start NodeServerThread in child thread,and connect to server in main thread 
@@ -96,7 +86,7 @@ class NodeService():
 		# 1)inform others that myself is offline
 		self.server.inform(False)
 		# 2)stop node server thread
-		self.event_need_exit.set()
+		self.server_thread.stop()
 		mylogger.info('[stop]: NodeService stopped')
 
 	"""

@@ -27,31 +27,34 @@ class Node:
 		self.known = set()
 		self.event_running = event_running
 		self.event_need_exit = event_need_exit
+		# store local node server
+		self.local_server = None
 
 	def _start(self):
 		try:
 			t = ('',self.port)
 			# in both server and client set allow_none=True
-			s = SimpleXMLRPCServer(t,allow_none=True,logRequests=False)
-			s.register_instance(self)
+			self.local_server = SimpleXMLRPCServer(t,allow_none=True,logRequests=False)
+			self.local_server.register_instance(self)
 			msg ="[_start]: Server started at {0}...".format(self.url)
 			print(msg)
 			mylogger.info(msg)
-			while not self.event_need_exit.is_set():
-				self.event_running.set() # set flag to true
-				s.serve_forever()
-			else:
-				mylogger.info('[_start]: event_need_exit set to true!!!')
-				mylogger.info('[_start]: Server stopped at {0} peacefully!!!'.format(self.url))
+			self.event_running.set() # set flag to true
+			self.local_server.serve_forever()
 		except socket.error,e:
 			mylogger.warn(e)
 			mylogger.warn('[_start]: socket error')
-			self.event_running.clear() # set flag to false
+			mylogger.warn('[_start]: program is going to exit...')
+			# event_running must be false
 		except Exception, e:
 			mylogger.warn(e)
 			mylogger.warn('[_start]: except')
 			mylogger.warn('[_start]: Server stopped at {0}'.format(self.url))
-			self.event_running.clear() # set flag to false
+			# event_running must be false
+
+	def _shutdown(self):
+		mylogger.warn('[_shutdown]: shutdown server...')
+		self.local_server.shutdown()
 
 	def _getfilepath(self,query):
 		# query like  './share/11.txt' or '11.txt'
