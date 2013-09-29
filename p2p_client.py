@@ -63,16 +63,18 @@ class NodeService():
 		self.server = None
 
 	def _getfilepath(self,query):
-		# query like  './share/11.txt' or '11.txt'
+		"""
+		query like  './share/11.txt' or '11.txt'
+		"""
 		if query.startswith(self.dirname):
 			return query
 		else:
 			return join(self.dirname,query)
 
-	"""
-	start NodeServerThread in child thread,and connect to server in main thread 
-	"""
 	def start(self):
+		"""
+		start NodeServerThread in child thread,and connect to server in main thread 
+		"""
 		mylogger.info('[start]: NodeService starting...')
 		# 1)start node server in child thread
 		self.server_thread.start()
@@ -113,9 +115,13 @@ class NodeService():
 		return self.server.list()
 
 	def listall(self):
-		# list files in all nodes
+		# list files in all nodes: for gui
 		return self.server.listall()
 	
+	def listall2(self):
+		# list files in all nodes: for console
+		return self.server.listall2()
+
 	def geturl(self):
 		# get url of local node
 		return self.url
@@ -177,8 +183,8 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 
 	def initParams(self):
 		self.localurl = NodeService.geturl(self)
-		self.listfiles_local = []
-		self.listfiles_remote = []
+		self.local_files = []
+		self.remote_files = []
 
 	def initUI(self):
 		mylogger.info("[initUI]...")
@@ -233,35 +239,31 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 	def _updateLocalLabel(self):
 		mylogger.info("[_updateLocalLabel]...")
 		# update local label	
-		str_local = "local@{0} [total {1} files]".format(self.localurl,len(self.listfiles_local))
+		str_local = "local@{0} [total {1} files]".format(self.localurl,len(self.local_files))
 		self.main_widget.label_local.setText(str_local)
 
 	def _updateRemoteLabel(self):
 		mylogger.info("[_updateRemoteLabel]...")
 		# update remote label	
-		str_remote = "remote [total {0} files]".format(len(self.listfiles_remote))
+		str_remote = "remote [total {0} files]".format(len(self.remote_files))
 		self.main_widget.label_remote.setText(str_remote)
 
 	def _updateLocalList(self):
 		mylogger.info("[_updateLocalList]...")
 		self.main_widget.list_local.clear()
-		for f in self.listfiles_local:
+		for f in self.local_files:
 			self.main_widget.list_local.addItem(f)
 
 	def _updateRemoteList(self):
 		mylogger.info("[_updateRemoteList]...")
 		self.main_widget.list_remote.clear()
-		for f in self.listfiles_remote:
+		for f in self.remote_files:
 			self.main_widget.list_remote.addItem(f)
 	
 	def updateList(self):
 		mylogger.info("[updateList]...")
-		self.listfiles_remote = []
-		for url,lst in NodeService.listall(self):
-			if self.localurl == url:
-				self.listfiles_local = lst
-			else:
-				self.listfiles_remote.extend(lst)
+		# update local and remote files
+		self.local_files, self.remote_files = NodeService.listall(self)
 		self._updateLocalLabel()
 		self._updateRemoteLabel()
 		self._updateLocalList()
@@ -289,7 +291,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 	def closeEvent(self,event):
 		mylogger.info("[closeEvent]")
 		# If we close the QtGui.QWidget, the QtGui.QCloseEvent is generated and closeEvent is called.
-        	reply = QtGui.QMessageBox.question(self, 'Message', "Are you sure to stop?", QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.Yes) 
+        	reply = QtGui.QMessageBox.question(self, 'Message', "Are you sure to exit?", QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.Yes) 
         	if reply == QtGui.QMessageBox.Yes:
 			# when exit,inform other nodes 
 			msg = ('###[closeEvent]: program is going to exit... ')
@@ -338,7 +340,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		# when fetch successfully, need to update local list
 		# update local list
 		filepath = NodeService._getfilepath(self,arg) 
-		self.listfiles_local.append(filepath)
+		self.local_files.append(filepath)
 		# update local list
 		self.main_widget.list_local.addItem(filepath)
 		# update local label
@@ -397,7 +399,7 @@ class ConsoleClient(NodeService,Cmd):
 		list shared files in all remote nodes	
 		"""
 		print('###[do_listall]: list shared files in all remote nodes')
-		for url,lt in NodeService.listall(self):
+		for url,lt in NodeService.listall2(self):
 			print('*'*60)
 			print('url:{0}'.format(url))
 			print('files:')

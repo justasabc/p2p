@@ -37,11 +37,11 @@ class Node:
 		self.event_running = event_running
 		# store local node server for later shutdown
 		self.local_server = None
-		# NEW variables
-		self.local_files = []
-		self.remote_files = []
 
 	def _start(self):
+		"""
+		start node server
+		"""
 		try:
 			t = ('',getport(self.url))
 			# in both server and client set allow_none=True
@@ -86,57 +86,12 @@ class Node:
 		self.known.remove(other)
 		return SUCCESS
 
-	def _online(self):
-		"""
-		inform others about myself's status(on)
-		"""
-		mylogger.info('[_online]')
-		for other in self.known.copy():
-			if other == self.url:
-				continue
-			s = ServerProxy(other)
-			try:
-				s.add(self.url)
-			except Fault,f:
-				mylogger.warn(f)
-				mylogger.warn('[inform]: {0} started but inform failed'.format(other))
-			except socket.error:
-				mylogger.warn('[inform]: {0} not started'.format(other))
-				pass
-	
-	def _offline(self):
-		"""
-		inform others about myself's status(off)
-		"""
-		mylogger.info('[_offline]')
-		for other in self.known.copy():
-			if other == self.url:
-				continue
-			s = ServerProxy(other)
-			try:
-				s.remove(self.url)
-			except Fault,f:
-				mylogger.warn(f)
-				mylogger.warn('[inform]: {0} started but inform failed'.format(other))
-			except socket.error:
-				mylogger.warn('[inform]: {0} not started'.format(other))
-				pass
-	
-	
-	def inform(self,status):
-		"""
-		inform others about myself's status(on or off)
-		"""
-		mylogger.info('[inform]: status {0}'.format(status))
-		if status:
-			self._online()
-		else:
-			self._offline()
-		mylogger.info('[inform]: knows {0}'.format(self.known))
-		return SUCCESS
 	
 	def fetch(self,query,secret):
-		# query:  filepath
+		"""
+		fetch a given file from all available nodes
+		query:  filepath
+		"""
 		mylogger.info('-'*60)
 		mylogger.info('[fetch]: fetching from {0}'.format(self.url))
 		if secret != self.secret:
@@ -151,7 +106,10 @@ class Node:
 		return code
 
 	def query(self,query,starturl,history=[]):
-		# return value:(NOT_EXIST,None)(ACCESS_DENIED,None)(SUCCESS,data)
+		"""
+		query a given file
+		return value:(NOT_EXIST,None)(ACCESS_DENIED,None)(ALREADY_EXIST,None)(SUCCESS,data)
+		"""
 		mylogger.info('-'*40)
 		mylogger.info('[query]: querying from {0}'.format(self.url))
 		code,data = self._handle(query,starturl)
@@ -173,7 +131,10 @@ class Node:
 			return code,data
 
 	def _handle(self,query,starturl):
+		"""
+		handle query in local node
 		# query like  './share/11.txt' 
+		"""
 		mylogger.info('-'*20)
 		mylogger.info('[handle]: begin')
 		filepath = query # query is filepath
@@ -196,6 +157,9 @@ class Node:
 		return SUCCESS,data
 
 	def _broadcast(self,query,starturl,history):
+		"""
+		broadcast to all other nodes
+		"""
 		mylogger.info('-'*10)
 		mylogger.info('[broadcast]:')
 		mylogger.info("knows: {0}".format(self.known))
@@ -240,13 +204,73 @@ class ListableNode(Node):
 	"""
 	def __init__(self,url,dirname,secret,event_running):
 		Node.__init__(self,url,dirname,secret,event_running)
+		# NEW variables
+		self.local_files = []
+		self.remote_files = []
+
+	def _online(self):
+		"""
+		inform others about myself's status(on)
+		"""
+		mylogger.info('[_online]')
+		for other in self.known.copy():
+			if other == self.url:
+				continue
+			s = ServerProxy(other)
+			try:
+				# inform other node to add local node url
+				s.add(self.url)
+				# inform other node to update files list
+				s.listall()
+			except Fault,f:
+				mylogger.warn(f)
+				mylogger.warn('[inform]: {0} started but inform failed'.format(other))
+			except socket.error:
+				mylogger.warn('[inform]: {0} not started'.format(other))
+				pass
+	
+	def _offline(self):
+		"""
+		inform others about myself's status(off)
+		"""
+		mylogger.info('[_offline]')
+		for other in self.known.copy():
+			if other == self.url:
+				continue
+			s = ServerProxy(other)
+			try:
+				# inform other node to remove local node url
+				s.remove(self.url)
+				# inform other node to update files list
+				s.listall()
+			except Fault,f:
+				mylogger.warn(f)
+				mylogger.warn('[inform]: {0} started but inform failed'.format(other))
+			except socket.error:
+				mylogger.warn('[inform]: {0} not started'.format(other))
+				pass
+	
+	
+	def inform(self,status):
+		"""
+		inform others about myself's status(on or off)
+		"""
+		mylogger.info('[inform]: status {0}'.format(status))
+		if status:
+			self._online()
+		else:
+			self._offline()
+		mylogger.info('[inform]: knows {0}'.format(self.known))
+		return SUCCESS
 
 	def list(self):
 		"""
 		list files in local node
 		"""
 		mylogger.info('[list]: list files in {0}'.format(self.url))
-		return list_all_files(self.dirname)
+		if not len(self.local_files):
+			self.local_files = list_all_files(self.dirname)
+		return self.local_files
 	
 	def _listother(self,other):
 		"""
@@ -268,15 +292,39 @@ class ListableNode(Node):
 
 	def listall(self):
 		"""
-		list all files in known urls
+		list all files in known urls: for gui
 		"""
 		mylogger.info('[listall]: list all files in remote nodes')
-		url_list={}
+		self.local_files = []
+		self.remote_files = []
 		for other in self.known.copy():
 			if other == self.url:
 				lt = self.list()
+				# update local files
+				self.local_files = lt
 			else:
 				lt = self._listother(other)
+				# update remote files
+				self.remote_files.extend(lt)
+		return self.local_files,self.remote_files
+
+	def listall2(self):
+		"""
+		list all files in known urls: for console
+		"""
+		mylogger.info('[listall]: list all files in remote nodes')
+		url_list={}
+		self.local_files = []
+		self.remote_files = []
+		for other in self.known.copy():
+			if other == self.url:
+				lt = self.list()
+				# update local files
+				self.local_files = lt
+			else:
+				lt = self._listother(other)
+				# update remote files
+				self.remote_files.extend(lt)
 			url_list[other]= lt
 		return url_list.items()
 
