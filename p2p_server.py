@@ -8,7 +8,7 @@ import thread
 from threading import Thread,Event
 # by kzl
 from settings import mylogger,MAX_HISTORY_LENGTH,NOT_EXIST,ACCESS_DENIED,ALREADY_EXIST,SUCCESS,URL_PREFIX,PORT
-from utils import inside,getport
+from utils import inside,getport,read_urls,save_urls
 from files import list_all_files,savefile_frombinary_xmlrpc,readfile_asbinary_xmlrpc
 from threads import SaveFileThread
 
@@ -16,8 +16,7 @@ class FileInfo():
 	"""
 	class for storing file info
 	"""
-	def __init__(self,nodeurl,filename,filepath,filesize,filedate):
-		self.nodeurl = nodeurl
+	def __init__(self,filename,filepath,filesize,filedate):
 		self.filename = filename
 		self.filepath = filepath
 		self.filesize = filesize
@@ -27,7 +26,7 @@ class Node:
 	"""
 	a simple node class
 	"""
-	def __init__(self,url,dirname,secret,event_running):
+	def __init__(self,url,dirname,secret,event_running,ipsfile):
 		self.url = url
 		self.dirname = dirname
 		self.secret = secret
@@ -35,14 +34,35 @@ class Node:
 		self.known = set()
 		# indicate whether node server is running
 		self.event_running = event_running
+		# ipsfile for storing all available nodes
+		self.ipsfile = ipsfile
 		# store local node server for later shutdown
 		self.local_server = None
+
+	def _read(self):
+		"""
+		read urls from ipsfile
+		"""
+		mylogger.info('[_read]: reading urls ... ')
+		for url in read_urls(self.ipsfile):
+			self.known.add(url)
+		mylogger.info('[_read]: reading urls finiehed')
+
+	def _save(self):
+		"""
+		save urls to ipsfile
+		"""
+		mylogger.info('[_save]: saving urls ... ')
+		save_urls(self.known,self.ipsfile)
+		mylogger.info('[_save]: saving urls finiehed')
 
 	def _start(self):
 		"""
 		start node server
 		"""
 		try:
+			# on start up ,read urls
+			self._read()
 			t = ('',getport(self.url))
 			# in both server and client set allow_none=True
 			self.local_server = SimpleXMLRPCServer(t,allow_none=True,logRequests=False)
@@ -68,6 +88,8 @@ class Node:
 		shut down node server
 		"""
 		mylogger.warn('[_shutdown]: shutdown server...')
+		# on shutdown,save urls
+		self._save()
 		self.local_server.shutdown()
 
 	def add(self,other):
@@ -202,8 +224,8 @@ class ListableNode(Node):
 	"""
 	node that we can list all available files in dirname
 	"""
-	def __init__(self,url,dirname,secret,event_running):
-		Node.__init__(self,url,dirname,secret,event_running)
+	def __init__(self,url,dirname,secret,event_running,ipsfile):
+		Node.__init__(self,url,dirname,secret,event_running,ipsfile)
 		# NEW variables
 		self.local_files = []
 		self.remote_files = []
@@ -221,7 +243,7 @@ class ListableNode(Node):
 				# inform other node to add local node url
 				s.add(self.url)
 				# inform other node to update files list
-				s.listall()
+				#s.listall()
 			except Fault,f:
 				mylogger.warn(f)
 				mylogger.warn('[inform]: {0} started but inform failed'.format(other))
@@ -242,7 +264,7 @@ class ListableNode(Node):
 				# inform other node to remove local node url
 				s.remove(self.url)
 				# inform other node to update files list
-				s.listall()
+				#s.listall()
 			except Fault,f:
 				mylogger.warn(f)
 				mylogger.warn('[inform]: {0} started but inform failed'.format(other))

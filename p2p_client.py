@@ -10,7 +10,7 @@ import argparse
 import logging
 # by kzl
 from settings import mylogger,NOT_EXIST,ACCESS_DENIED,ALREADY_EXIST,SUCCESS,PORT,SHARED_FOLDER,SERVER_START_TIME,SECRET_LENGTH,IPS_FILE,URL_PREFIX
-from utils import randomstring,generate_urls,get_lan_ip,geturl
+from utils import randomstring,get_lan_ip,geturl
 from p2p_server import ListableNode
 # gui
 from PyQt4 import QtGui,QtCore
@@ -23,7 +23,7 @@ class NodeServerThread(Thread):
 	"""
 	thread for starting and stopping node server
 	"""
-	def __init__(self,name,url,dirname,secret,event_running):
+	def __init__(self,name,url,dirname,secret,event_running,ipsfile):
 		super(NodeServerThread,self).__init__()
 		self.name = name
 		self.daemon = True
@@ -31,12 +31,13 @@ class NodeServerThread(Thread):
 		self.dirname = dirname
 		self.secret = secret
 		self.event_running = event_running
+		self.ipsfile = ipsfile
 		# server_node
 		self.server_node = None
 		
 	def run(self):
 		mylogger.info('[NodeServerThread]: {0} starting...'.format(self.name))
-		self.server_node = ListableNode(self.url,self.dirname,self.secret,self.event_running)
+		self.server_node = ListableNode(self.url,self.dirname,self.secret,self.event_running,self.ipsfile)
 		# start node server
 		self.server_node._start()
 
@@ -58,7 +59,7 @@ class NodeService():
 		# indicate whether node server is running
 		self.event_running= Event() # flag is false by default
 		# server thread instance
-		self.server_thread = NodeServerThread('Thread-SERVER',self.url,self.dirname,self.secret,self.event_running)
+		self.server_thread = NodeServerThread('Thread-SERVER',self.url,self.dirname,self.secret,self.event_running,self.ipsfile)
 		# node server proxy for client use
 		self.server = None
 
@@ -86,11 +87,7 @@ class NodeService():
 		mylogger.info('[start]: Connecting to server in Main Thread...')
 		self.server = ServerProxy(self.url,allow_none=True)
 		mylogger.info('[start]: Connected to server in Main Thread')
-		# add others to myself
-		for url in generate_urls(self.ipsfile):
-			self.server.add(url)
 		# inform others that myself is online
-		# add myself to others
 		self.server.inform(True)
 		mylogger.info('[start]: NodeService started')
 

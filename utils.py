@@ -97,11 +97,25 @@ def geturl(prefix,ip,port):
 
 def getport(url):
         """
-        get port number from url like http://localhost:5555
+        get port number from url like http://192.168.1.200:5555
         """
-        name = urlparse(url)[1] # localhost:5555
+	if url.startswith(URL_PREFIX):
+        	name = urlparse(url)[1] # 192.168.1.200:5555
+	else:
+		name = url
         parts = name.split(':')
 	return int(parts[-1])
+
+def getip(url):
+        """
+        get ip from url like http://192.168.1.200:5555
+        """
+	if url.startswith(URL_PREFIX):
+        	name = urlparse(url)[1] # 192.168.1.200:5555
+	else:
+		name = url
+        parts = name.split(':')
+	return parts[0]
 
 def randomstring(length):
          """
@@ -114,26 +128,42 @@ def randomstring(length):
                  chars.append(choice(letters))
          return ''.join(chars)
 
-def generate_urls(ipsfile):
+def read_urls(ipsfile):
         """
-        generate urls from ips
         192.168.1.200--->http://192.168.1.200:11111
         """
         for line in open(ipsfile):
                 ip = line.strip()
 		if ip:
-                	url = "{0}{1}:{2}".format(URL_PREFIX,ip,PORT)
+			url = geturl(URL_PREFIX,ip,PORT)
                 	yield url
+
+def save_urls(urls_set,ipsfile):
+        """
+        http://192.168.1.200:11111----->192.168.1.200
+        """
+	with open(ipsfile,'w') as f:
+		for url in urls_set.copy():
+			ip = getip(url)
+			line ='{0}{1}'.format(ip,os.linesep)
+			f.write(line)
 
 def main():
 	print get_lan_ip()
 	print get_lan_ip2()
 	print get_wan_ip()
-	print getport('http://localhost:5555')
+	print getport('http://192.168.1.200:5555')
+	print getport('192.168.1.200:5555')
+	print getip('http://192.168.1.200:5555')
+	print getip('192.168.1.200:5555')
+	print getip('192.168.1.200')
 	print randomstring(100)
-	for url in generate_urls('ips.txt'):
+	for url in read_ips('ips.txt'):
 		print url
 
+	s = set(['192.168.1.1','192.168.1.2'])
+	save_ips(s,'ips2.txt')
+	
 	dirname = './share/'
 	filepath = './share/11.txt'
 	print inside(dirname,filepath)
