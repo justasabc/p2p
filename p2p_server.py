@@ -273,6 +273,7 @@ class Node:
 		[used in online]
 		"""
 		mylogger.info('[add]: hello {0}'.format(other))
+		print "??????????????????",otherfiles
 		self.known.add(other)
 		if len(otherfiles):
 			self.remote_files[other] = otherfiles
@@ -322,8 +323,9 @@ class Node:
 			try:
 				# inform other node to add local node 
 				files = self.get_local_files()
-				print files
+				print "add {0} to {1}".format(self.url,other)
 				s.add(self.url,files)
+				print "add finished"
 			except Fault,f:
 				mylogger.warn(f)
 				mylogger.warn('[online]: {0} started but inform failed'.format(other))
