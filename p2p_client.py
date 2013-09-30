@@ -10,7 +10,7 @@ import argparse
 import logging
 # by kzl
 from settings import mylogger,NOT_EXIST,ACCESS_DENIED,ALREADY_EXIST,SUCCESS,PORT,SHARED_FOLDER,SERVER_START_TIME,SECRET_LENGTH,IPS_FILE,URL_PREFIX
-from utils import randomstring,get_lan_ip,geturl
+from utils import random_string,get_lan_ip,geturl
 from p2p_server import Node
 # gui
 from PyQt4 import QtGui,QtCore
@@ -23,7 +23,7 @@ class NodeServerThread(Thread):
 	"""
 	thread for starting and stopping node server
 	"""
-	def __init__(self,name,url,dirname,secret,ipsfile,event_running,event_update_local,event_update_remote):
+	def __init__(self,name,url,dirname,secret,ipsfile,event_running):
 		super(NodeServerThread,self).__init__()
 		self.name = name
 		self.daemon = True
@@ -32,8 +32,6 @@ class NodeServerThread(Thread):
 		self.secret = secret
 		self.ipsfile = ipsfile
 		self.event_running = event_running
-		self.event_update_local = event_update_local
-		self.event_update_remote = event_update_remote
 
 		# New variables
 		# server_node
@@ -41,7 +39,7 @@ class NodeServerThread(Thread):
 		
 	def run(self):
 		mylogger.info('[NodeServerThread]: {0} starting...'.format(self.name))
-		self.server_node = Node(self.url,self.dirname,self.secret,self.ipsfile,self.event_running,self.event_update_local,self.event_update_remote)
+		self.server_node = Node(self.url,self.dirname,self.secret,self.ipsfile,self.event_running)
 		# start node server
 		self.server_node._start()
 
@@ -58,20 +56,17 @@ class NodeService():
 	def __init__(self,url,dirname,ipsfile):
 		self.url = url
 		self.dirname = dirname
-		self.secret = randomstring(SECRET_LENGTH)
+		self.secret = random_string(SECRET_LENGTH)
 		self.ipsfile = ipsfile
 		# indicate whether node server is running
 		self.event_running= Event() # flag is false by default
-		# indicate whether client need to update list
-		self.event_update_local = Event() # flag is false by default
-		self.event_update_remote = Event() # flag is false by default
 
 		# server thread instance
-		self.server_thread = NodeServerThread('Thread-SERVER',self.url,self.dirname,self.secret,self.ipsfile,self.event_running,self.event_update_local,self.event_update_remote)
+		self.server_thread = NodeServerThread('Thread-SERVER',self.url,self.dirname,self.secret,self.ipsfile,self.event_running)
 		# node server proxy for client use
 		self.server = None
 
-	def _getfilepath(self,query):
+	def get_filepath(self,query):
 		"""
 		query like  './share/11.txt' or '11.txt'
 		"""
@@ -93,15 +88,11 @@ class NodeService():
 		mylogger.info('[start]: NodeServerThread started') 
 		# 2) connect to server in main thread
 		self.server = ServerProxy(self.url,allow_none=True)
-		# 3) inform other nodes about myself online
-		#self.server.online()
 		mylogger.info('[start]: NodeService started')
 
 	def stop(self):
 		mylogger.info('[stop]: NodeService stopping...')
-		# 1) inform other nodes about myself offline
-		#self.server.offline()
-		# 2) stop node server in child thread
+		# 1) stop node server in child thread
 		self.server_thread.stop()
 		mylogger.info('[stop]: NodeService stopped')
 
@@ -110,7 +101,7 @@ class NodeService():
 	"""
 	def fetch(self,query):
 		# fetch file from available node
-		filepath = self._getfilepath(query)
+		filepath = self.get_filepath(query)
 		return self.server.fetch(filepath,self.secret)
 
 	def get_local_files(self):
@@ -129,9 +120,13 @@ class NodeService():
 		# update remote_files 
 		self.server.update_remote_list()
 	
-	def geturl(self):
+	def get_url(self):
 		# get url of local node
 		return self.url
+
+	def get_remote_urls(self):
+		# get remote urls 
+		return self.server.get_remote_urls()
 
 	def is_local_updated(self):
 		# whether local updated
@@ -140,6 +135,14 @@ class NodeService():
 	def is_remote_updated(self):
 		# whether remote updated
 		return self.server.is_remote_updated()
+
+	def clear_local_update(self):
+		# clear local update and set to false
+		self.server.clear_local_update()
+
+	def clear_remote_update(self):
+		# clear remote update and set to false
+		self.server.clear_remote_update()
 
 class ConsoleClient(NodeService,Cmd):
 	"""
@@ -213,7 +216,15 @@ class ConsoleClient(NodeService,Cmd):
 		get url of local node
 		"""
 		print('###[do_url]: get url of local node')
-		print(NodeService.geturl(self))
+		print(NodeService.get_url(self))
+
+	def do_urlr(self,arg):
+		"""
+		get remote urls
+		"""
+		print('###[do_urlr]: get remote urls')
+		for url in NodeService.get_remote_urls(self):
+			print url
 
 	def do_isupdate(self,arg):
 		"""
@@ -238,6 +249,12 @@ class ConsoleClient(NodeService,Cmd):
 		sys.exit()
 
 	do_EOF = do_quit = do_exit;
+
+	def do_help(self,arg):
+		"""
+		output help of command
+		"""
+		Cmd.do_help(self,arg)
 
 def main_console():
 	client = ConsoleClient(SERVER_URL,SHARED_FOLDER,IPS_FILE)
@@ -312,7 +329,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		self.initUI()
 
 	def initParams(self):
-		self.localurl = NodeService.geturl(self)
+		self.localurl = NodeService.get_url(self)
 		self.local_files = []
 		self.remote_files = {}
 
@@ -352,7 +369,8 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		# set control states
 		self.setFetchEnabled(False)
 		# set list files
-		self.setList()
+		self.setLocal()
+		self.setRemote()
 
 		# settings for window
 		self.resize(WIN_WIDTH,WIN_HEIGHT)
@@ -417,30 +435,34 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 				self.main_widget.list_remote.addItem(f)
 
 	def setLocal(self):
-		mylogger.info('[setLocal]...')
-		self._setLocalFiles()
-		self._setLocalLabel()
-		self._setLocalList()
-		mylogger.info('[setLocal] finiehed')
+		if NodeService.is_local_updated(self):
+			mylogger.info('[setLocal]...')
+			self._setLocalFiles()
+			self._setLocalLabel()
+			self._setLocalList()
+			mylogger.info('[setLocal] finiehed')
+			# after set local list,clear local update
+			NodeService.clear_local_update(self) # set to false
 	
 	def setRemote(self):
-		mylogger.info('[setRemote]...')
-		self._setRemoteFiles()
-		self._setRemoteLabel()
-		self._setRemoteList()
-		mylogger.info('[setRemote] finiehed')
-
-	def setList(self):
-		self.setLocal()
-		self.setRemote()
+		if NodeService.is_remote_updated(self):
+			mylogger.info('[setRemote]...')
+			self._setRemoteFiles()
+			self._setRemoteLabel()
+			self._setRemoteList()
+			mylogger.info('[setRemote] finiehed')
+			# after set remote list,clear remote update
+			NodeService.clear_remote_update(self) # set to false
 
 	def updateList(self):
 		mylogger.info("[updateList]...")
 		# update local and remote files
-		NodeService.update_local_list(self)
-		NodeService.update_remote_list(self)
-		# really update local and remote files
-		self.setList()
+		if not NodeService.is_local_updated(self):
+			NodeService.update_local_list(self)
+			self.setLocal()
+		if not NodeService.is_remote_updated(self):
+			NodeService.update_remote_list(self)
+			self.setRemote()
 		mylogger.info("[updateList] finished")
 
 	def setFetchEnabled(self,enabled):

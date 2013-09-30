@@ -117,7 +117,7 @@ def getip(url):
         parts = name.split(':')
 	return parts[0]
 
-def randomstring(length):
+def random_string(length):
          """
          generate a random string for given length
          """
@@ -173,7 +173,7 @@ def main():
 	print getip('http://192.168.1.200:5555')
 	print getip('192.168.1.200:5555')
 	print getip('192.168.1.200')
-	print randomstring(100)
+	print random_string(100)
 
 	print 'ip_exist----------------------------'
 	print ip_exist('192.168.1.200')

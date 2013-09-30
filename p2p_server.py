@@ -26,7 +26,7 @@ class Node:
 	"""
 	a simple node class
 	"""
-	def __init__(self,url,dirname,secret,ipsfile,event_running,event_update_local,event_update_remote):
+	def __init__(self,url,dirname,secret,ipsfile,event_running):
 		self.url = url
 		self.dirname = dirname
 		self.secret = secret
@@ -37,8 +37,8 @@ class Node:
 		# inform client node server is running
 		self.event_running = event_running
 		# inform client to update local or remote list
-		self.event_update_local = event_update_local
-		self.event_update_remote = event_update_remote
+		self.event_update_local = Event()
+		self.event_update_remote = Event()
 
 		# New variables
 		# store local node server for later shutdown
@@ -239,6 +239,18 @@ class Node:
 		"""
 		return self.event_update_remote.is_set()
 
+	def clear_local_update(self):
+		"""
+		clear local update and set to false
+		"""
+		self.event_update_local.clear()
+
+	def clear_remote_update(self):
+		"""
+		clear remote update and set to false
+		"""
+		self.event_update_remote.clear()
+
 	def _trigger_update_local(self):
 		"""
 		trigger update local list event
@@ -279,6 +291,22 @@ class Node:
 		mylogger.info('[hello]: introduce {0} to me'.format(url))
 		self.known.add(url)
 		return True
+
+	def get_url(self):
+		"""
+		get url of local node
+		"""
+		mylogger.info('[get_url]: ')
+		return self.url
+
+	def get_remote_urls(self):
+		"""
+		get remote urls of local node
+		"""
+		mylogger.info('[get_remote_urls]: ')
+		copy = self.known.copy()
+		copy.remove(self.url)
+		return list(copy)
 
 	def add_node(self,other,otherfiles):
 		"""
