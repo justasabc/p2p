@@ -308,6 +308,7 @@ class Node:
 		[used in list_other  SPECIAL!!!]
 		"""
 		if other in self.known:
+			mylogger.info("{0} in known set".format(other))
 			return
 		mylogger.info('[add]: HELLO {0}'.format(other))
 		self.known.add(other)
@@ -359,7 +360,8 @@ class Node:
 			s = ServerProxy(other)
 			try:
 				# inform other node to add local node 
-				s.add_node(self.url,self.get_local_files())
+				files = self.get_local_files()
+				s.add_node(self.url,files)
 			except Fault,f:
 				mylogger.warn(f)
 				mylogger.warn('[online]: {0} started but inform failed'.format(other))
@@ -412,7 +414,8 @@ class Node:
 			#mylogger.info("[list_other]: call list_local 3")
 			# since we connect to other,introduce self.url to other
 			# inform other node to add local node 
-			s.add_node(self.url,self.get_local_files())
+			files = self.get_local_files()
+			s.add_node(self.url,files)
 			# introduce self.url to other
 			lt = s.list_local()
 		except Fault,f:
