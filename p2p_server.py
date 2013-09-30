@@ -255,11 +255,13 @@ class Node:
 		mylogger.info('[_addurl]: adding {0}...'.format(url))
 		self.known.add(url)
 		if url == self.url:
+			print "_addurl call listlocal 1"
 			lt = self.listlocal()
 			if len(lt):
 				self.local_files = lt
 				self._trigger_update_local()
 		else:
+			print "_addurl call _listother 2"
 			lt = self._listother(url)
 			if len(lt):
 				self.remote_files[url] = lt
@@ -372,6 +374,7 @@ class Node:
 		lt = []
 		s = ServerProxy(other)
 		try:
+			print "_listother call listlocal 3"
 			lt = s.listlocal()
 		except Fault,f:
 			mylogger.warn(f)
