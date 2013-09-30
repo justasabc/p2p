@@ -272,13 +272,13 @@ class Node:
 		mylogger.info('[_add]: adding {0}...'.format(url))
 		self.known.add(url)
 		if url == self.url:
-			mylogger.info("[_add]: call list_local 1")
+			#mylogger.info("[_add]: call list_local 1")
 			lt = self.list_local()
 			if len(lt):
 				self.local_files = lt
 				self._trigger_update_local()
 		else:
-			mylogger.info("[_add]: call list_other 2")
+			#mylogger.info("[_add]: call list_other 2")
 			lt = self.list_other(url)
 			if len(lt):
 				self.remote_files[url] = lt
@@ -415,7 +415,7 @@ class Node:
 		lt = []
 		s = ServerProxy(other)
 		try:
-			mylogger.info("[list_other]: call list_local 3")
+			#mylogger.info("[list_other]: call list_local 3")
 			# since we connect to other,introduce self.url to other
 			s.hello(self.url)
 			# introduce self.url to other
