@@ -457,11 +457,15 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 	def updateList(self):
 		mylogger.info("[updateList]...")
 		# update local and remote files
+		print "local_update",NodeService.is_local_updated()
+		print "remote_update",NodeService.is_remote_updated()
 		if not NodeService.is_local_updated(self):
 			NodeService.update_local_list(self)
+			print "after,local_update",NodeService.is_local_updated()
 			self.setLocal()
 		if not NodeService.is_remote_updated(self):
 			NodeService.update_remote_list(self)
+			print "after,remote_update",NodeService.is_remote_updated()
 			self.setRemote()
 		mylogger.info("[updateList] finished")
 

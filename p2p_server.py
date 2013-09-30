@@ -290,6 +290,7 @@ class Node:
 		"""
 		mylogger.info('[hello]: introduce {0} to me'.format(url))
 		self.known.add(url)
+		self._trigger_update_remote()
 		return True
 
 	def get_url(self):
@@ -459,7 +460,7 @@ class Node:
 				self._trigger_update_remote()
 		return True
 
-def main():
+def main:
 	n = Node('http://192.169.1.200','share/','','ips.txt',Event(),Event())
 	n._start()
 
