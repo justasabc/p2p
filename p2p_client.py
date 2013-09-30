@@ -87,17 +87,21 @@ class NodeService():
 		mylogger.info('[start]: NodeService starting...')
 		# 1)start node server in child thread
 		self.server_thread.start()
-		# 2) connect to server in main thread
 		# block current thread until node server is started
 		if not self.event_running.wait(3):
 			sys.exit()
 		mylogger.info('[start]: NodeServerThread started') 
+		# 2) connect to server in main thread
 		self.server = ServerProxy(self.url,allow_none=True)
+		# 3) inform other nodes about myself online
+		self.server.online()
 		mylogger.info('[start]: NodeService started')
 
 	def stop(self):
 		mylogger.info('[stop]: NodeService stopping...')
-		# 1)stop node server in child thread
+		# 1) inform other nodes about myself offline
+		self.server.offline()
+		# 2) stop node server in child thread
 		self.server_thread.stop()
 		mylogger.info('[stop]: NodeService stopped')
 

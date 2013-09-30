@@ -81,7 +81,7 @@ class Node:
 			# 1)on start up ,read urls 
 			self._read()
 			# 2)after all urls added to known set,inform others about myself's status online
-			self._online()
+			#self.online()
 			mylogger.info('[_start]: event_running..')
 			# 3)start server
 			self.event_running.set() # set flag to true
@@ -106,8 +106,8 @@ class Node:
 		thread_save = SaveIPsThread('Thread-save',self._save)
 		thread_save.start()
 		# 2) inform other nodes that myself is offline
-		self._offline()
-		# 3) shutdown server
+		#self.offline()
+		# 2) shutdown server
 		self.local_server.shutdown()
 
 	def fetch(self,query,secret):
@@ -256,7 +256,7 @@ class Node:
 		if url == self.url:
 			lt = self.listlocal()
 			if len(lt):
-				self.local_files = self.listlocal()
+				self.local_files = lt
 				self._trigger_update_local()
 		else:
 			lt = self._listother(url)
@@ -295,11 +295,11 @@ class Node:
 		"""
 		return True
 
-	def _online(self):
+	def online(self):
 		"""
 		inform others about myself's status(on)
 		"""
-		mylogger.info('[_online]')
+		mylogger.info('[online]')
 		for other in self.known.copy():
 			if other == self.url:
 				continue
@@ -309,19 +309,20 @@ class Node:
 				s.add(self.url)
 			except Fault,f:
 				mylogger.warn(f)
-				mylogger.warn('[_online]: {0} started but inform failed'.format(other))
+				mylogger.warn('[online]: {0} started but inform failed'.format(other))
 			except socket.error,e:
-				mylogger.error('[_online]: {0} for {1}'.format(e,other))
-				mylogger.warn('[_online]: {0} not started'.format(other))
+				mylogger.error('[online]: {0} for {1}'.format(e,other))
+				mylogger.warn('[online]: {0} not started'.format(other))
 			except Exception, e:
 				mylogger.warn(e)
-				mylogger.warn("[_online]: Exception")
+				mylogger.warn("[online]: Exception")
+		return True
 	
-	def _offline(self):
+	def offline(self):
 		"""
 		inform others about myself's status(off)
 		"""
-		mylogger.info('[_offline]')
+		mylogger.info('[offline]')
 		for other in self.known.copy():
 			if other == self.url:
 				continue
@@ -331,13 +332,14 @@ class Node:
 				s.remove(self.url)
 			except Fault,f:
 				mylogger.warn(f)
-				mylogger.warn('[_offline]: {0} started but inform failed'.format(other))
+				mylogger.warn('[offline]: {0} started but inform failed'.format(other))
 			except socket.error,e:
-				mylogger.error('[_offline]: {0} for {1}'.format(e,other))
-				mylogger.warn('[_offline]: {0} not started'.format(other))
+				mylogger.error('[offline]: {0} for {1}'.format(e,other))
+				mylogger.warn('[offline]: {0} not started'.format(other))
 			except Exception, e:
 				mylogger.warn(e)
-				mylogger.warn("[_online]: Exception")
+				mylogger.warn("[online]: Exception")
+		return True
 
 	def listlocal(self):
 		"""
@@ -363,7 +365,7 @@ class Node:
 			mylogger.warn('[_listother]: {0} not started'.format(other))
 		except Exception, e:
 			mylogger.warn(e)
-			mylogger.warn("[_online]: Exception")
+			mylogger.warn("[online]: Exception")
 		finally:
 			return lt
 
