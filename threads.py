@@ -1,4 +1,4 @@
-from threading import Thread,Event,Timer
+from threading import Thread,Event
 import time
 from settings import mylogger
 import files
@@ -58,7 +58,9 @@ class UpdateGUIListTimer(Thread):
 		self.stopped = Event() # default false
 
 	def run(self):
-		while not self.stopped.wait(self.interval):
+		while not self.stopped.is_set():
+		#while not self.stopped.wait(self.interval):
+			self.stopped.wait(self.interval)
 			# call target every interval seconds
 			self.target()
 

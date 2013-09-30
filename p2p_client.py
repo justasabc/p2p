@@ -90,6 +90,8 @@ class NodeService():
 		mylogger.info('[start]: NodeServerThread started') 
 		# 2) connect to server in main thread
 		self.server = ServerProxy(self.url,allow_none=True)
+		# 3) online
+		#self.server.online()
 		mylogger.info('[start]: NodeService started')
 
 	def stop(self):

@@ -60,7 +60,7 @@ class Node:
 			urls.append(self.url)
 		for url in urls:
 			self._add(url)
-		mylogger.info('[_read]: reading urls finiehed')
+		mylogger.info('[_read]: reading urls finished')
 
 	def _save(self):
 		"""
@@ -415,6 +415,7 @@ class Node:
 			# since we connect to other,introduce self.url to other
 			# inform other node to add local node 
 			files = self.get_local_files()
+			print files
 			s.add_node(self.url,files)
 			# introduce self.url to other
 			lt = s.list_local()
@@ -422,6 +423,7 @@ class Node:
 			mylogger.warn(f)
 			mylogger.warn('[list_other]: {0} started but list failed'.format(other))
 		except socket.error,e:
+			mylogger.error(e)
 			mylogger.error('[list_other]: {0} for {1}'.format(e,other))
 			#mylogger.warn('[list_other]: {0} not started'.format(other))
 		except Exception, e:
