@@ -55,7 +55,7 @@ class Node:
 		"""
 		mylogger.info('[_read]: reading urls ... ')
 		for url in read_urls(self.ipsfile):
-			self.add(url)
+			self._addurl(url)
 		mylogger.info('[_read]: reading urls finiehed')
 
 	def _save(self):
@@ -246,12 +246,13 @@ class Node:
 		trigger update remote list event
 		"""
 		self.event_update_remote.set()
-
-	def add(self,url):
+		
+	def _addurl(self,url):
 		"""
 		add url to myself's known set
+		[used in _read]
 		"""
-		mylogger.info('[add]: hello {0}'.format(url))
+		mylogger.info('[_addurl]: adding {0}...'.format(url))
 		self.known.add(url)
 		if url == self.url:
 			lt = self.listlocal()
@@ -263,18 +264,32 @@ class Node:
 			if len(lt):
 				self.remote_files[url] = lt
 				self._trigger_update_remote()
-		return SUCCESS
+		return True
 
-	def remove(self,other):
+	def add(self,other,otherfiles):
+		"""
+		add other to myself's known set
+		add otherfiles to myself's remote_files
+		[used in online]
+		"""
+		mylogger.info('[add]: hello {0}'.format(other))
+		self.known.add(other)
+		if len(otherfiles):
+			self.remote_files[other] = otherfiles
+			self._trigger_update_remote()
+
+	def remove(self,other,otherfiles=[]):
 		"""
 		remove other from myself's known set
+		remove otherfiles from myself's remote_files
+		[used in offline]
 		"""
 		mylogger.info('[remove]: byebye {0}'.format(other))
 		self.known.remove(other)
 		if other in self.remote_files:
 			del self.remote_files[other]
 			self._trigger_update_remote()
-		return SUCCESS
+		return True
 
 	def get_local_files(self):
 		"""
@@ -305,8 +320,12 @@ class Node:
 				continue
 			s = ServerProxy(other)
 			try:
+				print other
 				# inform other node to add local node url
-				s.add(self.url)
+				files = self.listlocal()
+				print files
+				s.add(self.url,files)
+				print "add finshed..."
 			except Fault,f:
 				mylogger.warn(f)
 				mylogger.warn('[online]: {0} started but inform failed'.format(other))
