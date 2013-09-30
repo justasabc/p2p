@@ -205,5 +205,7 @@ def main():
 	print inside(dirname,filepath)
 
 	print list_equal([1,2,3],[3,2,1])
+	print list_equal([],[3,2,1])
+
 if __name__ =='__main__':
 	main()

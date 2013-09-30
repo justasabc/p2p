@@ -415,7 +415,6 @@ class Node:
 			# since we connect to other,introduce self.url to other
 			# inform other node to add local node 
 			files = self.get_local_files()
-			print files
 			s.add_node(self.url,files)
 			# introduce self.url to other
 			lt = s.list_local()
@@ -423,7 +422,6 @@ class Node:
 			mylogger.warn(f)
 			mylogger.warn('[list_other]: {0} started but list failed'.format(other))
 		except socket.error,e:
-			mylogger.error(e)
 			mylogger.error('[list_other]: {0} for {1}'.format(e,other))
 			#mylogger.warn('[list_other]: {0} not started'.format(other))
 		except Exception, e:
@@ -455,10 +453,14 @@ class Node:
 				continue
 			else:
 				lt = self.list_other(other)
-				if not list_equal(lt,self.remote_files[other]):
+				if other in self.remote_files:
+					if not list_equal(lt,self.remote_files[other]):
+						self.remote_files[other]= lt
+						if not len(lt):
+							del self.remote_files[other]
+						self._trigger_update_remote()
+				elif len(lt):# k not in dict
 					self.remote_files[other]= lt
-					if not len(lt):
-						del self.remote_files[other]
 					self._trigger_update_remote()
 		return True
 
