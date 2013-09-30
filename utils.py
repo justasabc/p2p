@@ -128,15 +128,31 @@ def randomstring(length):
                  chars.append(choice(letters))
          return ''.join(chars)
 
+def ip_exist(ip):
+	"""
+	check if ip exist
+	"""
+	try:
+		socket.gethostbyaddr(ip)
+		return True
+	except socket.herror:
+		return False
+
 def read_urls(ipsfile):
         """
         192.168.1.200--->http://192.168.1.200:11111
         """
-        for line in open(ipsfile):
-                ip = line.strip()
-		if ip:
-			url = geturl(URL_PREFIX,ip,PORT)
-                	yield url
+	lt = []
+	with open(ipsfile,'r') as f:
+		while True:
+			line = f.readline()
+			if not line:
+				break
+                	ip = line.strip()
+			if ip and ip_exist(ip): 
+				url = geturl(URL_PREFIX,ip,PORT)
+                		lt.append(url)
+	return lt
 
 def save_urls(urls_set,ipsfile):
         """
@@ -158,11 +174,20 @@ def main():
 	print getip('192.168.1.200:5555')
 	print getip('192.168.1.200')
 	print randomstring(100)
-	for url in read_ips('ips.txt'):
+
+	print 'ip_exist----------------------------'
+	print ip_exist('192.168.1.200')
+	print ip_exist('192.168.1.199')
+	print ip_exist('192.168.1.198')
+	print 'ip_exist finiehed--------------------'
+
+	print 'read_urls---------------------------'
+	for url in read_urls('ips.txt'):
 		print url
+	print 'read_urls----------------------------'
 
 	s = set(['192.168.1.1','192.168.1.2'])
-	save_ips(s,'ips2.txt')
+	save_urls(s,'ips2.txt')
 	
 	dirname = './share/'
 	filepath = './share/11.txt'

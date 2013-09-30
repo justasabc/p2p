@@ -5,12 +5,12 @@ import sys
 import time
 import socket
 import thread
-from threading import Thread,Event
+from threading import Thread,Event,Lock
 # by kzl
 from settings import mylogger,MAX_HISTORY_LENGTH,NOT_EXIST,ACCESS_DENIED,ALREADY_EXIST,SUCCESS,URL_PREFIX,PORT
-from utils import inside,getport,read_urls,save_urls
+from utils import inside,getport,read_urls,save_urls,ip_exist
 from files import list_all_files,savefile_frombinary_xmlrpc,readfile_asbinary_xmlrpc
-from threads import SaveFileThread
+from threads import SaveFileThread,SaveIPsThread
 
 class FileInfo():
 	"""
@@ -26,18 +26,28 @@ class Node:
 	"""
 	a simple node class
 	"""
-	def __init__(self,url,dirname,secret,event_running,ipsfile):
+	def __init__(self,url,dirname,secret,ipsfile,event_running,event_update_local,event_update_remote):
 		self.url = url
 		self.dirname = dirname
 		self.secret = secret
-		# store all known urls in set (including self)
-		self.known = set()
-		# indicate whether node server is running
-		self.event_running = event_running
 		# ipsfile for storing all available nodes
 		self.ipsfile = ipsfile
+		# store all known urls in set (including self)
+		self.known = set()
+		# inform client node server is running
+		self.event_running = event_running
+		# inform client to update local or remote list
+		self.event_update_local = event_update_local
+		self.event_update_remote = event_update_remote
+
+		# New variables
 		# store local node server for later shutdown
 		self.local_server = None
+
+		# NEW variables
+		self.local_files = []
+		# url---[f1,f2,f3...]
+		self.remote_files = {}
 
 	def _read(self):
 		"""
@@ -45,7 +55,7 @@ class Node:
 		"""
 		mylogger.info('[_read]: reading urls ... ')
 		for url in read_urls(self.ipsfile):
-			self.known.add(url)
+			self._add(url)
 		mylogger.info('[_read]: reading urls finiehed')
 
 	def _save(self):
@@ -61,8 +71,6 @@ class Node:
 		start node server
 		"""
 		try:
-			# on start up ,read urls
-			self._read()
 			t = ('',getport(self.url))
 			# in both server and client set allow_none=True
 			self.local_server = SimpleXMLRPCServer(t,allow_none=True,logRequests=False)
@@ -70,6 +78,12 @@ class Node:
 			msg ="[_start]: Server started at {0}...".format(self.url)
 			print(msg)
 			mylogger.info(msg)
+			# 1)on start up ,read urls 
+			self._read()
+			# 2)after all urls added to known set,inform others about myself's status online
+			self._online()
+			mylogger.info('[_start]: event_running..')
+			# 3)start server
 			self.event_running.set() # set flag to true
 			self.local_server.serve_forever()
 		except socket.error,e:
@@ -88,27 +102,14 @@ class Node:
 		shut down node server
 		"""
 		mylogger.warn('[_shutdown]: shutdown server...')
-		# on shutdown,save urls
-		self._save()
+		# 1)on shutdown,save urls on thread-save
+		thread_save = SaveIPsThread('Thread-save',self._save)
+		thread_save.start()
+		# 2) inform other nodes that myself is offline
+		self._offline()
+		# 3) shutdown server
 		self.local_server.shutdown()
 
-	def add(self,other):
-		"""
-		add other to myself's known set
-		"""
-		mylogger.info('[add]: hello {0}'.format(other))
-		self.known.add(other)
-		return SUCCESS
-
-	def remove(self,other):
-		"""
-		remove other from myself's known set
-		"""
-		mylogger.info('[remove]: byebye {0}'.format(other))
-		self.known.remove(other)
-		return SUCCESS
-
-	
 	def fetch(self,query,secret):
 		"""
 		fetch a given file from all available nodes
@@ -207,9 +208,8 @@ class Node:
 				mylogger.warn(f)
 				mylogger.warn("[broadcast]:except fault")
 			except socket.error, e:
-				mylogger.warn(e)
 				mylogger.warn("[broadcast]:except socket error")
-				mylogger.warn('[broadcast]: CAN NOT connect from {0} to {1}'.format(self.url,other))
+				mylogger.error('[broadcast]: {0} for {1}'.format(e,other))
 				# added by kzl
 				self.known.remove(other)
 				#mylogger.warn('[broadcast]: <knows>: {0}'.format(self.known))
@@ -220,15 +220,80 @@ class Node:
 		mylogger.info('[broadcast] not found')
 		return NOT_EXIST,None
 
-class ListableNode(Node):
 	"""
 	node that we can list all available files in dirname
 	"""
-	def __init__(self,url,dirname,secret,event_running,ipsfile):
-		Node.__init__(self,url,dirname,secret,event_running,ipsfile)
-		# NEW variables
-		self.local_files = []
-		self.remote_files = []
+	def is_local_updated(self):
+		"""
+		whether local updated
+		"""
+		return self.event_update_local.is_set()
+
+	def is_remote_updated(self):
+		"""
+		whether remote updated
+		"""
+		return self.event_update_remote.is_set()
+
+	def _trigger_update_local(self):
+		"""
+		trigger update local list event
+		"""
+		self.event_update_local.set()
+
+	def _trigger_update_remote(self):
+		"""
+		trigger update remote list event
+		"""
+		self.event_update_remote.set()
+
+	def _add(self,url):
+		"""
+		add url to myself's known set
+		"""
+		mylogger.info('[_add]: hello {0}'.format(url))
+		self.known.add(url)
+		if url == self.url:
+			lt = self._listlocal()
+			if len(lt):
+				self.local_files = self._listlocal()
+				self._trigger_update_local()
+		else:
+			lt = self._listother(url)
+			if len(lt):
+				self.remote_files[url] = lt
+				self._trigger_update_remote()
+		return SUCCESS
+
+	def _remove(self,other):
+		"""
+		remove other from myself's known set
+		"""
+		mylogger.info('[_remove]: byebye {0}'.format(other))
+		self.known.remove(other)
+		if other in self.remote_files:
+			del self.remote_files[other]
+			self._trigger_update_remote()
+		return SUCCESS
+
+	def get_local_files(self):
+		"""
+		return the newest local_files
+		"""
+		return self.local_files
+
+	def get_remote_files(self):
+		"""
+		return the newest remote_files
+		"""
+		return self.remote_files
+
+	def fetch_with_cache(self,query,secret):
+		"""
+		fetch a given file from current local_files and remote_files
+		query:  filepath
+		"""
+		return True
 
 	def _online(self):
 		"""
@@ -241,15 +306,16 @@ class ListableNode(Node):
 			s = ServerProxy(other)
 			try:
 				# inform other node to add local node url
-				s.add(self.url)
-				# inform other node to update files list
-				#s.listall()
+				s._add(self.url)
 			except Fault,f:
 				mylogger.warn(f)
-				mylogger.warn('[inform]: {0} started but inform failed'.format(other))
-			except socket.error:
-				mylogger.warn('[inform]: {0} not started'.format(other))
-				pass
+				mylogger.warn('[_online]: {0} started but inform failed'.format(other))
+			except socket.error,e:
+				mylogger.error('[_online]: {0} for {1}'.format(e,other))
+				mylogger.warn('[_online]: {0} not started'.format(other))
+			except Exception, e:
+				mylogger.warn(e)
+				mylogger.warn("[_online]: Exception")
 	
 	def _offline(self):
 		"""
@@ -262,96 +328,74 @@ class ListableNode(Node):
 			s = ServerProxy(other)
 			try:
 				# inform other node to remove local node url
-				s.remove(self.url)
-				# inform other node to update files list
-				#s.listall()
+				s._remove(self.url)
 			except Fault,f:
 				mylogger.warn(f)
-				mylogger.warn('[inform]: {0} started but inform failed'.format(other))
-			except socket.error:
-				mylogger.warn('[inform]: {0} not started'.format(other))
-				pass
-	
-	
-	def inform(self,status):
-		"""
-		inform others about myself's status(on or off)
-		"""
-		mylogger.info('[inform]: status {0}'.format(status))
-		if status:
-			self._online()
-		else:
-			self._offline()
-		mylogger.info('[inform]: knows {0}'.format(self.known))
-		return SUCCESS
+				mylogger.warn('[_offline]: {0} started but inform failed'.format(other))
+			except socket.error,e:
+				mylogger.error('[_offline]: {0} for {1}'.format(e,other))
+				mylogger.warn('[_offline]: {0} not started'.format(other))
+			except Exception, e:
+				mylogger.warn(e)
+				mylogger.warn("[_online]: Exception")
 
-	def list(self):
+	def _listlocal(self):
 		"""
 		list files in local node
 		"""
-		mylogger.info('[list]: list files in {0}'.format(self.url))
-		if not len(self.local_files):
-			self.local_files = list_all_files(self.dirname)
-		return self.local_files
+		mylogger.info('[_listlocal]: list files in {0}'.format(self.url))
+		return list_all_files(self.dirname)
 	
 	def _listother(self,other):
 		"""
 		list files in other node
 		"""
 		mylogger.info('[_listother]: list files in {0}'.format(other))
-		s = ServerProxy(other)
 		lt = []
+		s = ServerProxy(other)
 		try:
-			lt = s.list()
+			lt = s._listlocal()
 		except Fault,f:
 			mylogger.warn(f)
 			mylogger.warn('[_listother]: {0} started but list failed'.format(other))
 		except socket.error,e:
-			mylogger.warn(e)
+			mylogger.error('[_listother]: {0} for {1}'.format(e,other))
 			mylogger.warn('[_listother]: {0} not started'.format(other))
-			pass
-		return lt
+		except Exception, e:
+			mylogger.warn(e)
+			mylogger.warn("[_online]: Exception")
+		finally:
+			return lt
 
-	def listall(self):
+	def update_local_list(self):
 		"""
-		list all files in known urls: for gui
+		update method
+		list all files in local node
 		"""
-		mylogger.info('[listall]: list all files in remote nodes')
-		self.local_files = []
-		self.remote_files = []
+		mylogger.info('[update_local_list]: update local list')
+		self.local_files = self._listlocal()
+		self._trigger_update_local()
+		return True
+
+	def update_remote_list(self):
+		"""
+		update method
+		list all files in remote nodes
+		"""
+		mylogger.info('[update_remote_list]: update remote list')
 		for other in self.known.copy():
 			if other == self.url:
-				lt = self.list()
-				# update local files
-				self.local_files = lt
+				continue
 			else:
 				lt = self._listother(other)
-				# update remote files
-				self.remote_files.extend(lt)
-		return self.local_files,self.remote_files
-
-	def listall2(self):
-		"""
-		list all files in known urls: for console
-		"""
-		mylogger.info('[listall]: list all files in remote nodes')
-		url_list={}
-		self.local_files = []
-		self.remote_files = []
-		for other in self.known.copy():
-			if other == self.url:
-				lt = self.list()
-				# update local files
-				self.local_files = lt
-			else:
-				lt = self._listother(other)
-				# update remote files
-				self.remote_files.extend(lt)
-			url_list[other]= lt
-		return url_list.items()
+				self.remote_files[other]= lt
+				if not len(lt):
+					del self.remote_files[other]
+				self._trigger_update_remote()
+		return True
 
 def main():
-	n = Node(21111,'share/','',Event(),Event())
+	n = Node('http://192.169.1.200','share/','','ips.txt',Event(),Event())
 	n._start()
 
 if __name__ =='__main__':

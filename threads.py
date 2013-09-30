@@ -22,3 +22,21 @@ class SaveFileThread(Thread):
 		files.savefile_frombinary_xmlrpc(self.filepath,self.data)
 		mylogger.info('[SaveFileThread]: Time used {0}s'.format(time.clock()-t1))
 		mylogger.info('[SaveFileThread]: Exiting {0}'.format(self.name))
+
+
+class SaveIPsThread(Thread):
+	"""
+	background(daemon) thread for save ips to file
+	"""
+	def __init__(self,name,target):
+		mylogger.info('[__init__]: {0}'.format(name))
+		super(SaveIPsThread,self).__init__()
+		self.name = name
+		self.daemon = True
+		self.target = target
+
+	def run(self):
+		mylogger.info('[SaveIPsThread]: Starting {0}'.format(self.name))
+		# call target
+		self.target()
+		mylogger.info('[SaveIPsThread]: Exiting {0}'.format(self.name))

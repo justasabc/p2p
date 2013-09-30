@@ -11,7 +11,7 @@ import logging
 # by kzl
 from settings import mylogger,NOT_EXIST,ACCESS_DENIED,ALREADY_EXIST,SUCCESS,PORT,SHARED_FOLDER,SERVER_START_TIME,SECRET_LENGTH,IPS_FILE,URL_PREFIX
 from utils import randomstring,get_lan_ip,geturl
-from p2p_server import ListableNode
+from p2p_server import Node
 # gui
 from PyQt4 import QtGui,QtCore
 from settings import WIN_WIDTH,WIN_HEIGHT,ICON_APP,ICON_FETCH,ICON_QUIT
@@ -23,21 +23,25 @@ class NodeServerThread(Thread):
 	"""
 	thread for starting and stopping node server
 	"""
-	def __init__(self,name,url,dirname,secret,event_running,ipsfile):
+	def __init__(self,name,url,dirname,secret,ipsfile,event_running,event_update_local,event_update_remote):
 		super(NodeServerThread,self).__init__()
 		self.name = name
 		self.daemon = True
 		self.url = url
 		self.dirname = dirname
 		self.secret = secret
-		self.event_running = event_running
 		self.ipsfile = ipsfile
+		self.event_running = event_running
+		self.event_update_local = event_update_local
+		self.event_update_remote = event_update_remote
+
+		# New variables
 		# server_node
 		self.server_node = None
 		
 	def run(self):
 		mylogger.info('[NodeServerThread]: {0} starting...'.format(self.name))
-		self.server_node = ListableNode(self.url,self.dirname,self.secret,self.event_running,self.ipsfile)
+		self.server_node = Node(self.url,self.dirname,self.secret,self.ipsfile,self.event_running,self.event_update_local,self.event_update_remote)
 		# start node server
 		self.server_node._start()
 
@@ -58,8 +62,12 @@ class NodeService():
 		self.ipsfile = ipsfile
 		# indicate whether node server is running
 		self.event_running= Event() # flag is false by default
+		# indicate whether client need to update list
+		self.event_update_local = Event() # flag is false by default
+		self.event_update_remote = Event() # flag is false by default
+
 		# server thread instance
-		self.server_thread = NodeServerThread('Thread-SERVER',self.url,self.dirname,self.secret,self.event_running,self.ipsfile)
+		self.server_thread = NodeServerThread('Thread-SERVER',self.url,self.dirname,self.secret,self.ipsfile,self.event_running,self.event_update_local,self.event_update_remote)
 		# node server proxy for client use
 		self.server = None
 
@@ -84,18 +92,12 @@ class NodeService():
 		if not self.event_running.wait(3):
 			sys.exit()
 		mylogger.info('[start]: NodeServerThread started') 
-		mylogger.info('[start]: Connecting to server in Main Thread...')
 		self.server = ServerProxy(self.url,allow_none=True)
-		mylogger.info('[start]: Connected to server in Main Thread')
-		# inform others that myself is online
-		self.server.inform(True)
 		mylogger.info('[start]: NodeService started')
 
 	def stop(self):
 		mylogger.info('[stop]: NodeService stopping...')
-		# 1)inform others that myself is offline
-		self.server.inform(False)
-		# 2)stop node server thread
+		# 1)stop node server in child thread
 		self.server_thread.stop()
 		mylogger.info('[stop]: NodeService stopped')
 
@@ -107,21 +109,148 @@ class NodeService():
 		filepath = self._getfilepath(query)
 		return self.server.fetch(filepath,self.secret)
 
-	def list(self):
-		# list files in local node
-		return self.server.list()
+	def get_local_files(self):
+		# return local_files
+		return self.server.get_local_files()
 
-	def listall(self):
-		# list files in all nodes: for gui
-		return self.server.listall()
+	def get_remote_files(self):
+		# return remote_files
+		return self.server.get_remote_files()
+		
+	def update_local_list(self):
+		# update local_files 
+		self.server.update_local_list()
+
+	def update_remote_list(self):
+		# update remote_files 
+		self.server.update_remote_list()
 	
-	def listall2(self):
-		# list files in all nodes: for console
-		return self.server.listall2()
-
 	def geturl(self):
 		# get url of local node
 		return self.url
+
+	def is_local_updated(self):
+		# whether local updated
+		return self.server.is_local_updated()
+
+	def is_remote_updated(self):
+		# whether remote updated
+		return self.server.is_remote_updated()
+
+class ConsoleClient(NodeService,Cmd):
+	"""
+	a simple console client
+	"""
+	prompt = '>'
+
+	def __init__(self,url,dirname,ipsfile):
+		NodeService.__init__(self,url,dirname,ipsfile)
+		Cmd.__init__(self)
+		# start node service
+		NodeService.start(self)
+
+	def do_fetch(self,arg):
+		"""
+		fetch <filename>
+		"""
+		if not arg or not arg.strip():
+			msg = '###[do_fetch]: Please enter file name'
+			print(msg)
+			return
+		code = NodeService.fetch(self,arg)
+		if code == SUCCESS:
+			msg ="###[do_fetch]: Fetch successfully for [{0}]".format(arg)
+		elif code == ACCESS_DENIED:
+			msg ="###[do_fetch]: Access denied for [{0}]".format(arg)
+		elif code == NOT_EXIST:
+			msg ="###[do_fetch]: Not exist for [{0}]".format(arg)
+		else:
+			msg = "###[do_fetch]: Already exist for [{0}]".format(arg)
+		print(msg)
+
+	def do_list(self,arg):
+		"""
+		list all shared files in local node	
+		"""
+		print('###[do_list]: list shared files in local node')
+		for f in NodeService.get_local_files(self):
+			print(f)
+
+	def do_listr(self,arg):
+		"""
+		list shared files in all remote nodes	
+		"""
+		print('###[do_listr]: list shared files in all remote nodes')
+		for url,lt in NodeService.get_remote_files(self).iteritems():
+			print('*'*60)
+			print('url:{0}'.format(url))
+			print('files:')
+			for f in lt:
+				print(f)
+
+	def do_update(self,arg):
+		"""
+		update local files list
+		"""
+		print('###[do_update]: update local files list')
+		NodeService.update_local_list(self)
+		self.do_list(arg)
+
+	def do_updater(self,arg):
+		"""
+		update remote files list
+		"""
+		print('###[do_updater]: update remote files list')
+		NodeService.update_remote_list(self)
+		self.do_listr(arg)
+
+	def do_url(self,arg):
+		"""
+		get url of local node
+		"""
+		print('###[do_url]: get url of local node')
+		print(NodeService.geturl(self))
+
+	def do_isupdate(self,arg):
+		"""
+		whether local list updated
+		"""
+		print('###[do_isupdate]: whether local list updated')
+		print(NodeService.is_local_updated(self))
+
+	def do_isupdater(self,arg):
+		"""
+		whether remote list updated
+		"""
+		print('###[do_isupdater]: whether remote list updated')
+		print(NodeService.is_remote_updated(self))
+
+	def do_exit(self,arg):
+		"""
+		exit or quit program
+		"""
+		print('###[do_exit]: program is going to exit... ')
+		NodeService.stop(self)
+		sys.exit()
+
+	do_EOF = do_quit = do_exit;
+
+def main_console():
+	client = ConsoleClient(SERVER_URL,SHARED_FOLDER,IPS_FILE)
+	client.cmdloop()
+
+# argparse
+parser = argparse.ArgumentParser(description='p2p node application')
+'''
+group = parser.add_mutually_exclusive_group()
+group.add_argument("-v", "--verbose", action="store_true",help="output detail to console")
+group.add_argument("-q", "--quiet", action="store_true",help="output detail to log file")
+'''
+group_mode = parser.add_mutually_exclusive_group()
+group_mode.add_argument("-c", "--console",action="store_true", help = "run application in console mode" )
+group_mode.add_argument("-g", "--gui", action = "store_true", help="run application in gui mode")
+args = parser.parse_args()
+
 
 class GuiWidget(QtGui.QWidget):
 	"""
@@ -181,7 +310,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 	def initParams(self):
 		self.localurl = NodeService.geturl(self)
 		self.local_files = []
-		self.remote_files = []
+		self.remote_files = {}
 
 	def initUI(self):
 		mylogger.info("[initUI]...")
@@ -218,8 +347,8 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 
 		# set control states
 		self.setFetchEnabled(False)
-		# update list
-		self.updateList()
+		# set list files
+		self.setList()
 
 		# settings for window
 		self.resize(WIN_WIDTH,WIN_HEIGHT)
@@ -229,42 +358,77 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		self.setWindowIcon(QtGui.QIcon(ICON_APP))
 		self.show()
 
+	def closeEvent(self,event):
+		mylogger.info("[closeEvent]")
+		# If we close the QtGui.QWidget, the QtGui.QCloseEvent is generated and closeEvent is called.
+        	reply = QtGui.QMessageBox.question(self, 'Message', "Are you sure to exit?", QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.Yes) 
+        	if reply == QtGui.QMessageBox.Yes:
+			msg = ('###[closeEvent]: program is going to exit... ')
+			mylogger.info(msg)
+			print(msg)
+			NodeService.stop(self)
+            		event.accept()
+       		else:
+            		event.ignore()        
+
 	def onUpdateHandler(self,value):
 		mylogger.info("[onUpdateHandler]...")
 		self.updateList()
 
-	def _updateLocalLabel(self):
-		mylogger.info("[_updateLocalLabel]...")
-		# update local label	
+	def _setLocalFiles(self):
+		self.local_files = NodeService.get_local_files(self)
+
+	def _setRemoteFiles(self):
+		self.remote_files = NodeService.get_remote_files(self)
+
+	def _setLocalLabel(self):
+		mylogger.info("[_setLocalLabel]...")
 		str_local = "local@{0} [total {1} files]".format(self.localurl,len(self.local_files))
 		self.main_widget.label_local.setText(str_local)
 
-	def _updateRemoteLabel(self):
-		mylogger.info("[_updateRemoteLabel]...")
-		# update remote label	
+	def _setRemoteLabel(self):
+		mylogger.info("[_setRemoteLabel]...")
 		str_remote = "remote [total {0} files]".format(len(self.remote_files))
 		self.main_widget.label_remote.setText(str_remote)
 
-	def _updateLocalList(self):
-		mylogger.info("[_updateLocalList]...")
+	def _setLocalList(self):
+		mylogger.info("[_setLocalList]...")
 		self.main_widget.list_local.clear()
 		for f in self.local_files:
 			self.main_widget.list_local.addItem(f)
 
-	def _updateRemoteList(self):
-		mylogger.info("[_updateRemoteList]...")
+	def _setRemoteList(self):
+		mylogger.info("[_setRemoteList]...")
 		self.main_widget.list_remote.clear()
-		for f in self.remote_files:
-			self.main_widget.list_remote.addItem(f)
+		for url,lt in self.remote_files.iteritems():
+			for f in lt:
+				self.main_widget.list_remote.addItem(f)
+
+	def setLocal(self):
+		mylogger.info('[setLocal]...')
+		self._setLocalFiles()
+		self._setLocalLabel()
+		self._setLocalList()
+		mylogger.info('[setLocal] finiehed')
 	
+	def setRemote(self):
+		mylogger.info('[setRemote]...')
+		self._setRemoteFiles()
+		self._setRemoteLabel()
+		self._setRemoteList()
+		mylogger.info('[setRemote] finiehed')
+
+	def setList(self):
+		self.setLocal()
+		self.setRemote()
+
 	def updateList(self):
 		mylogger.info("[updateList]...")
 		# update local and remote files
-		self.local_files, self.remote_files = NodeService.listall(self)
-		self._updateLocalLabel()
-		self._updateRemoteLabel()
-		self._updateLocalList()
-		self._updateRemoteList()
+		NodeService.update_local_list(self)
+		NodeService.update_remote_list(self)
+		# really update local and remote files
+		self.setList()
 		mylogger.info("[updateList] finished")
 
 	def setFetchEnabled(self,enabled):
@@ -285,19 +449,6 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 			self.onFetchHandler(False)
 		else: pass
 	
-	def closeEvent(self,event):
-		mylogger.info("[closeEvent]")
-		# If we close the QtGui.QWidget, the QtGui.QCloseEvent is generated and closeEvent is called.
-        	reply = QtGui.QMessageBox.question(self, 'Message', "Are you sure to exit?", QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.Yes) 
-        	if reply == QtGui.QMessageBox.Yes:
-			# when exit,inform other nodes 
-			msg = ('###[closeEvent]: program is going to exit... ')
-			mylogger.info(msg)
-			print(msg)
-			NodeService.stop(self)
-            		event.accept()
-       		else:
-            		event.ignore()        
 
 	def onTextChanged(self,value):
 		if value.isEmpty():
@@ -335,13 +486,8 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 	
 	def _onFetchSuccessfully(self,arg):
 		# when fetch successfully, need to update local list
-		# update local list
-		filepath = NodeService._getfilepath(self,arg) 
-		self.local_files.append(filepath)
-		# update local list
-		self.main_widget.list_local.addItem(filepath)
-		# update local label
-		self._updateLocalLabel()
+		NodeService.update_local_list(self)
+		self.setLocal()
 
 	def onListItemClicked(self,value):
 		self.main_widget.le.setText(value.text())
@@ -352,89 +498,6 @@ def main_gui():
 	client = GuiClient(SERVER_URL,SHARED_FOLDER,IPS_FILE)
 	sys.exit(app.exec_())
 
-class ConsoleClient(NodeService,Cmd):
-	"""
-	a simple console client
-	"""
-	prompt = '>'
-
-	def __init__(self,url,dirname,ipsfile):
-		NodeService.__init__(self,url,dirname,ipsfile)
-		Cmd.__init__(self)
-		# start node service
-		NodeService.start(self)
-
-	def do_fetch(self,arg):
-		"""
-		fetch <filename>
-		"""
-		if not arg or not arg.strip():
-			msg = '###[do_fetch]: Please enter file name'
-			print(msg)
-			return
-		code = NodeService.fetch(self,arg)
-		if code == SUCCESS:
-			msg ="###[do_fetch]: Fetch successfully for [{0}]".format(arg)
-		elif code == ACCESS_DENIED:
-			msg ="###[do_fetch]: Access denied for [{0}]".format(arg)
-		elif code == NOT_EXIST:
-			msg ="###[do_fetch]: Not exist for [{0}]".format(arg)
-		else:
-			msg = "###[do_fetch]: Already exist for [{0}]".format(arg)
-		print(msg)
-
-	def do_list(self,arg):
-		"""
-		list all shared files in local node	
-		"""
-		print('###[do_list]: list shared files in local node')
-		for f in NodeService.list(self):
-			print(f)
-
-	def do_listall(self,arg):
-		"""
-		list shared files in all remote nodes	
-		"""
-		print('###[do_listall]: list shared files in all remote nodes')
-		for url,lt in NodeService.listall2(self):
-			print('*'*60)
-			print('url:{0}'.format(url))
-			print('files:')
-			for f in lt:
-				print(f)
-
-	def do_geturl(self,arg):
-		"""
-		get url of local node
-		"""
-		print('###[do_geturl]: get url of local node')
-		print(NodeService.geturl(self))
-
-	def do_exit(self,arg):
-		"""
-		exit or quit program
-		"""
-		print('###[do_exit]: program is going to exit... ')
-		NodeService.stop(self)
-		sys.exit()
-
-	do_EOF = do_quit = do_exit;
-
-def main_console():
-	client = ConsoleClient(SERVER_URL,SHARED_FOLDER,IPS_FILE)
-	client.cmdloop()
-
-# argparse
-parser = argparse.ArgumentParser(description='p2p node application')
-'''
-group = parser.add_mutually_exclusive_group()
-group.add_argument("-v", "--verbose", action="store_true",help="output detail to console")
-group.add_argument("-q", "--quiet", action="store_true",help="output detail to log file")
-'''
-group_mode = parser.add_mutually_exclusive_group()
-group_mode.add_argument("-c", "--console",action="store_true", help = "run application in console mode" )
-group_mode.add_argument("-g", "--gui", action = "store_true", help="run application in gui mode")
-args = parser.parse_args()
 
 if __name__ =='__main__':
 	if args.console:
