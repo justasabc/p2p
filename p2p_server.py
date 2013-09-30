@@ -54,8 +54,12 @@ class Node:
 		read urls from ipsfile
 		"""
 		mylogger.info('[_read]: reading urls ... ')
-		for url in read_urls(self.ipsfile):
-			self._addurl(url)
+		urls = read_urls(self.ipsfile)
+		# make sure self.url in urls
+		if not self.url in urls:
+			urls.append(self.url)
+		for url in urls:
+			self._add(url)
 		mylogger.info('[_read]: reading urls finiehed')
 
 	def _save(self):
@@ -81,7 +85,7 @@ class Node:
 			# 1)on start up ,read urls 
 			self._read()
 			# 2)after all urls added to known set,inform others about myself's status online
-			#self.online()
+			self.online()
 			mylogger.info('[_start]: event_running..')
 			# 3)start server
 			self.event_running.set() # set flag to true
@@ -106,8 +110,8 @@ class Node:
 		thread_save = SaveIPsThread('Thread-save',self._save)
 		thread_save.start()
 		# 2) inform other nodes that myself is offline
-		#self.offline()
-		# 2) shutdown server
+		self.offline()
+		# 3) shutdown server
 		self.local_server.shutdown()
 
 	def fetch(self,query,secret):
@@ -247,27 +251,34 @@ class Node:
 		"""
 		self.event_update_remote.set()
 		
-	def _addurl(self,url):
+	def _add(self,url):
 		"""
 		add url to myself's known set
+		at the same time, list files in url
 		[used in _read]
 		"""
-		mylogger.info('[_addurl]: adding {0}...'.format(url))
+		mylogger.info('[_add]: adding {0}...'.format(url))
 		self.known.add(url)
 		if url == self.url:
-			mylogger.info("[_addurl]: call listlocal 1")
-			lt = self.listlocal()
+			mylogger.info("[_add]: call list_local 1")
+			lt = self.list_local()
 			if len(lt):
 				self.local_files = lt
 				self._trigger_update_local()
 		else:
-			mylogger.info("[_addurl]: call _listother 2")
-			lt = self._listother(url)
+			mylogger.info("[_add]: call list_other 2")
+			lt = self.list_other(url)
 			if len(lt):
 				self.remote_files[url] = lt
 				self._trigger_update_remote()
 
-	def add(self,other,otherfiles):
+	def add_url(self,url):
+		self.known.add(url)
+
+	def remove_url(self,url):
+		self.known.remove(url)
+
+	def add_node(self,other,otherfiles):
 		"""
 		add other to myself's known set
 		add otherfiles to myself's remote_files
@@ -280,7 +291,7 @@ class Node:
 			self._trigger_update_remote()
 		return True
 
-	def remove(self,other,otherfiles=[]):
+	def remove_node(self,other,otherfiles=[]):
 		"""
 		remove other from myself's known set
 		remove otherfiles from myself's remote_files
@@ -324,7 +335,7 @@ class Node:
 			try:
 				# inform other node to add local node 
 				files = self.get_local_files()
-				s.add(self.url,files)
+				s.add_node(self.url,files)
 			except Fault,f:
 				mylogger.warn(f)
 				mylogger.warn('[online]: {0} started but inform failed'.format(other))
@@ -347,7 +358,7 @@ class Node:
 			s = ServerProxy(other)
 			try:
 				# inform other node to remove local node 
-				s.remove(self.url,[])
+				s.remove_node(self.url,[])
 			except Fault,f:
 				mylogger.warn(f)
 				mylogger.warn('[offline]: {0} started but inform failed'.format(other))
@@ -359,29 +370,32 @@ class Node:
 				mylogger.warn("[online]: Exception")
 		return True
 
-	def listlocal(self):
+	def list_local(self):
 		"""
 		list files in local node
 		"""
-		mylogger.info('[listlocal]: list files in {0}'.format(self.url))
+		mylogger.info('[list_local]: list files in {0}'.format(self.url))
 		return list_all_files(self.dirname)
 	
-	def _listother(self,other):
+	def list_other(self,other):
 		"""
 		list files in other node
 		"""
-		mylogger.info('[_listother]: list files in {0}'.format(other))
+		mylogger.info('[list_other]: list files in {0}'.format(other))
 		lt = []
 		s = ServerProxy(other)
 		try:
-			mylogger.info("[_listother]: call listlocal 3")
-			lt = s.listlocal()
+			mylogger.info("[list_other]: call list_local 3")
+			# since we connect to other,add self.url to other
+			s.add_url(self.url)
+			# introduce myself to others
+			lt = s.list_local()
 		except Fault,f:
 			mylogger.warn(f)
-			mylogger.warn('[_listother]: {0} started but list failed'.format(other))
+			mylogger.warn('[list_other]: {0} started but list failed'.format(other))
 		except socket.error,e:
-			mylogger.error('[_listother]: {0} for {1}'.format(e,other))
-			#mylogger.warn('[_listother]: {0} not started'.format(other))
+			mylogger.error('[list_other]: {0} for {1}'.format(e,other))
+			#mylogger.warn('[list_other]: {0} not started'.format(other))
 		except Exception, e:
 			mylogger.warn(e)
 			mylogger.warn("[online]: Exception")
@@ -394,7 +408,7 @@ class Node:
 		list all files in local node
 		"""
 		mylogger.info('[update_local_list]: update local list')
-		self.local_files = self.listlocal()
+		self.local_files = self.list_local()
 		self._trigger_update_local()
 		return True
 
@@ -408,7 +422,7 @@ class Node:
 			if other == self.url:
 				continue
 			else:
-				lt = self._listother(other)
+				lt = self.list_other(other)
 				self.remote_files[other]= lt
 				if not len(lt):
 					del self.remote_files[other]

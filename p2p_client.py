@@ -94,13 +94,13 @@ class NodeService():
 		# 2) connect to server in main thread
 		self.server = ServerProxy(self.url,allow_none=True)
 		# 3) inform other nodes about myself online
-		self.server.online()
+		#self.server.online()
 		mylogger.info('[start]: NodeService started')
 
 	def stop(self):
 		mylogger.info('[stop]: NodeService stopping...')
 		# 1) inform other nodes about myself offline
-		self.server.offline()
+		#self.server.offline()
 		# 2) stop node server in child thread
 		self.server_thread.stop()
 		mylogger.info('[stop]: NodeService stopped')
@@ -390,9 +390,17 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		str_local = "local@{0} [total {1} files]".format(self.localurl,len(self.local_files))
 		self.main_widget.label_local.setText(str_local)
 
+	def _getRemoteFileCount(self,remotefiles):
+		count = 0
+		for url,ls in remotefiles.iteritems():
+			count +=len(ls)
+		return count
+
 	def _setRemoteLabel(self):
 		mylogger.info("[_setRemoteLabel]...")
-		str_remote = "remote [total {0} files]".format(len(self.remote_files))
+		nodeCount = len(self.remote_files)
+		fileCount = self._getRemoteFileCount(self.remote_files)
+		str_remote = "remote [{0} nodes,total {1} files]".format(nodeCount,fileCount)
 		self.main_widget.label_remote.setText(str_remote)
 
 	def _setLocalList(self):
