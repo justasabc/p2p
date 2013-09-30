@@ -320,12 +320,8 @@ class Node:
 				continue
 			s = ServerProxy(other)
 			try:
-				print other
-				# inform other node to add local node url
-				files = self.listlocal()
-				print files
-				s.add(self.url,files)
-				print "add finshed..."
+				# inform other node to add local node 
+				s.add(self.url,self.get_local_files())
 			except Fault,f:
 				mylogger.warn(f)
 				mylogger.warn('[online]: {0} started but inform failed'.format(other))
@@ -347,8 +343,8 @@ class Node:
 				continue
 			s = ServerProxy(other)
 			try:
-				# inform other node to remove local node url
-				s.remove(self.url)
+				# inform other node to remove local node 
+				s.remove(self.url,[])
 			except Fault,f:
 				mylogger.warn(f)
 				mylogger.warn('[offline]: {0} started but inform failed'.format(other))
