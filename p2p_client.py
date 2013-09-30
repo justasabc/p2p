@@ -341,10 +341,10 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		self.update_timer.start()
 	
 	def stop(self):	
-		# 1) stop node service
-		NodeService.stop(self)
-		# 2) stop update timer
+		# 1) stop update timer
 		self.update_timer.stop()
+		# 2) stop node service
+		NodeService.stop(self)
 
 	def initParams(self):
 		self.localurl = NodeService.get_url(self)

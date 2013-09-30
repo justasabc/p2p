@@ -38,4 +38,4 @@ ICON_FLODER = './icon/'
 ICON_APP = ICON_FLODER+'apple.png'
 ICON_FETCH = ICON_FLODER+'fetch.png'
 ICON_QUIT = ICON_FLODER+'quit.png'
-UPDATE_INTERVAL = 3.0 # every n seconds upodate gui list
+UPDATE_INTERVAL = 5.0 # every n seconds upodate gui list
