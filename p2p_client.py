@@ -2,16 +2,17 @@ from xmlrpclib import ServerProxy
 from cmd import Cmd
 from os.path import join
 import thread
-from threading import Thread,Event
+from threading import Thread,Event,Timer
 from time import sleep
 import sys
 import socket
 import argparse
 import logging
 # by kzl
-from settings import mylogger,NOT_EXIST,ACCESS_DENIED,ALREADY_EXIST,SUCCESS,PORT,SHARED_FOLDER,SERVER_START_TIME,SECRET_LENGTH,IPS_FILE,URL_PREFIX
+from settings import mylogger,NOT_EXIST,ACCESS_DENIED,ALREADY_EXIST,SUCCESS,PORT,SHARED_FOLDER,SERVER_START_TIME,SECRET_LENGTH,IPS_FILE,URL_PREFIX,UPDATE_INTERVAL
 from utils import random_string,get_lan_ip,geturl
 from p2p_server import Node
+from threads import UpdateGUIListTimer 
 # gui
 from PyQt4 import QtGui,QtCore
 from settings import WIN_WIDTH,WIN_HEIGHT,ICON_APP,ICON_FETCH,ICON_QUIT
@@ -24,6 +25,7 @@ class NodeServerThread(Thread):
 	thread for starting and stopping node server
 	"""
 	def __init__(self,name,url,dirname,secret,ipsfile,event_running):
+		mylogger.info('[__init__]: {0}'.format(name))
 		super(NodeServerThread,self).__init__()
 		self.name = name
 		self.daemon = True
@@ -318,15 +320,31 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 	"""
 	a simple client with gui
 	"""
-	def __init__(self,url,dirname,ipsfile):
+	def __init__(self,url,dirname,ipsfile,update_interval):
 		NodeService.__init__(self,url,dirname,ipsfile)
 		QtGui.QMainWindow.__init__(self)
-		# start node service
+		# update_interval for update timer
+		self.update_interval = update_interval
+		# start gui client
+		self.start()
+
+	def start(self):
+		# 1)start node service
 		NodeService.start(self)
-		# init params
+		# 2)init params
 		self.initParams()
-		# init gui
+		# 3)init gui
 		self.initUI()
+
+		# 4)user timer to update gui list every 3 seconds
+		self.update_timer = UpdateGUIListTimer('Thread-Update GUI Timer',self.update_interval,self.updateList)
+		self.update_timer.start()
+	
+	def stop(self):	
+		# 1) stop node service
+		NodeService.stop(self)
+		# 2) stop update timer
+		self.update_timer.stop()
 
 	def initParams(self):
 		self.localurl = NodeService.get_url(self)
@@ -388,7 +406,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 			msg = ('###[closeEvent]: program is going to exit... ')
 			mylogger.info(msg)
 			print(msg)
-			NodeService.stop(self)
+			self.stop()
             		event.accept()
        		else:
             		event.ignore()        
@@ -533,7 +551,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		
 def main_gui():
 	app = QtGui.QApplication(sys.argv)
-	client = GuiClient(SERVER_URL,SHARED_FOLDER,IPS_FILE)
+	client = GuiClient(SERVER_URL,SHARED_FOLDER,IPS_FILE,UPDATE_INTERVAL)
 	sys.exit(app.exec_())
 
 

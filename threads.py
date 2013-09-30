@@ -1,4 +1,4 @@
-from threading import Thread,Event
+from threading import Thread,Event,Timer
 import time
 from settings import mylogger
 import files
@@ -40,3 +40,27 @@ class SaveIPsThread(Thread):
 		# call target
 		self.target()
 		mylogger.info('[SaveIPsThread]: Exiting {0}'.format(self.name))
+
+
+class UpdateGUIListTimer(Thread):
+	"""
+	background(daemon) thread for update gui local and remote list
+	in n seconds
+	"""
+	def __init__(self,name,interval,target):
+		mylogger.info('[__init__]: {0}'.format(name))
+		super(UpdateGUIListTimer,self).__init__()
+		self.name = name
+		self.daemon = True
+		self.interval = interval
+		self.target = target
+		# whether to stop thread
+		self.stopped = Event() # default false
+
+	def run(self):
+		while not self.stopped.wait(self.interval):
+			# call target every interval seconds
+			self.target()
+
+	def stop(self):
+		self.stopped.set() #set true to stop thread

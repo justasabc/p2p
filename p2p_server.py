@@ -310,7 +310,7 @@ class Node:
 		if other in self.known:
 			mylogger.info("{0} in known set".format(other))
 			return
-		mylogger.info('[add]: HELLO {0}'.format(other))
+		mylogger.info('[add_node]: HELLO {0}'.format(other))
 		self.known.add(other)
 		if len(otherfiles):
 			self.remote_files[other] = otherfiles
@@ -323,7 +323,7 @@ class Node:
 		remove otherfiles from myself's remote_files
 		[used in offline]
 		"""
-		mylogger.info('[remove]: BYEBYE {0}'.format(other))
+		mylogger.info('[remove_node]: BYEBYE {0}'.format(other))
 		self.known.remove(other)
 		if other in self.remote_files:
 			del self.remote_files[other]
