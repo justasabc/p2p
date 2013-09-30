@@ -272,11 +272,13 @@ class Node:
 				self.remote_files[url] = lt
 				self._trigger_update_remote()
 
-	def add_url(self,url):
+	def hello(self,url):
+		"""
+		add url to myself
+		"""
+		mylogger.info('[hello]: introduce {0} to me'.format(url))
 		self.known.add(url)
-
-	def remove_url(self,url):
-		self.known.remove(url)
+		return True
 
 	def add_node(self,other,otherfiles):
 		"""
@@ -358,7 +360,7 @@ class Node:
 			s = ServerProxy(other)
 			try:
 				# inform other node to remove local node 
-				s.remove_node(self.url,[])
+				s.remove_node(self.url)
 			except Fault,f:
 				mylogger.warn(f)
 				mylogger.warn('[offline]: {0} started but inform failed'.format(other))
@@ -386,9 +388,9 @@ class Node:
 		s = ServerProxy(other)
 		try:
 			mylogger.info("[list_other]: call list_local 3")
-			# since we connect to other,add self.url to other
-			s.add_url(self.url)
-			# introduce myself to others
+			# since we connect to other,introduce self.url to other
+			s.hello(self.url)
+			# introduce self.url to other
 			lt = s.list_local()
 		except Fault,f:
 			mylogger.warn(f)
