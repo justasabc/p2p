@@ -255,13 +255,13 @@ class Node:
 		mylogger.info('[_addurl]: adding {0}...'.format(url))
 		self.known.add(url)
 		if url == self.url:
-			print "_addurl call listlocal 1"
+			mylogger.info("[_addurl]: call listlocal 1")
 			lt = self.listlocal()
 			if len(lt):
 				self.local_files = lt
 				self._trigger_update_local()
 		else:
-			print "_addurl call _listother 2"
+			mylogger.info("[_addurl]: call _listother 2")
 			lt = self._listother(url)
 			if len(lt):
 				self.remote_files[url] = lt
@@ -330,7 +330,7 @@ class Node:
 				mylogger.warn('[online]: {0} started but inform failed'.format(other))
 			except socket.error,e:
 				mylogger.error('[online]: {0} for {1}'.format(e,other))
-				mylogger.warn('[online]: {0} not started'.format(other))
+				#mylogger.warn('[online]: {0} not started'.format(other))
 			except Exception, e:
 				mylogger.warn(e)
 				mylogger.warn("[online]: Exception")
@@ -353,7 +353,7 @@ class Node:
 				mylogger.warn('[offline]: {0} started but inform failed'.format(other))
 			except socket.error,e:
 				mylogger.error('[offline]: {0} for {1}'.format(e,other))
-				mylogger.warn('[offline]: {0} not started'.format(other))
+				#mylogger.warn('[offline]: {0} not started'.format(other))
 			except Exception, e:
 				mylogger.warn(e)
 				mylogger.warn("[online]: Exception")
@@ -363,7 +363,7 @@ class Node:
 		"""
 		list files in local node
 		"""
-		mylogger.info('??????????????[listlocal]: list files in {0}'.format(self.url))
+		mylogger.info('[listlocal]: list files in {0}'.format(self.url))
 		return list_all_files(self.dirname)
 	
 	def _listother(self,other):
@@ -374,7 +374,7 @@ class Node:
 		lt = []
 		s = ServerProxy(other)
 		try:
-			print "_listother call listlocal 3"
+			mylogger.info("[_listother]: call listlocal 3")
 			lt = s.listlocal()
 		except Fault,f:
 			mylogger.warn(f)
