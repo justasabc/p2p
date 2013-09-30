@@ -164,6 +164,13 @@ def save_urls(urls_set,ipsfile):
 			line ='{0}{1}'.format(ip,os.linesep)
 			f.write(line)
 
+def list_equal(list1,list2):
+	"""
+	test if list1 equals to list2
+	[1,2,3] == [1,3,2]
+	"""
+	return set(list1) == set(list2)
+
 def main():
 	print get_lan_ip()
 	print get_lan_ip2()
@@ -197,5 +204,6 @@ def main():
 	filepath = './11.txt'
 	print inside(dirname,filepath)
 
+	print list_equal([1,2,3],[3,2,1])
 if __name__ =='__main__':
 	main()

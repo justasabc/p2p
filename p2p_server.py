@@ -8,7 +8,7 @@ import thread
 from threading import Thread,Event,Lock
 # by kzl
 from settings import mylogger,MAX_HISTORY_LENGTH,NOT_EXIST,ACCESS_DENIED,ALREADY_EXIST,SUCCESS,URL_PREFIX,PORT
-from utils import inside,getport,read_urls,save_urls,ip_exist
+from utils import inside,getport,read_urls,save_urls,list_equal
 from files import list_all_files,savefile_frombinary_xmlrpc,readfile_asbinary_xmlrpc
 from threads import SaveFileThread,SaveIPsThread
 
@@ -284,14 +284,6 @@ class Node:
 				self.remote_files[url] = lt
 				self._trigger_update_remote()
 
-	def hello(self,url):
-		"""
-		add url to myself
-		"""
-		mylogger.info('[hello]: introduce {0} to me'.format(url))
-		self.known.add(url)
-		return True
-
 	def get_url(self):
 		"""
 		get url of local node
@@ -313,7 +305,10 @@ class Node:
 		add other to myself's known set
 		add otherfiles to myself's remote_files
 		[used in online]
+		[used in list_other  SPECIAL!!!]
 		"""
+		if other in self.known:
+			return
 		mylogger.info('[add]: HELLO {0}'.format(other))
 		self.known.add(other)
 		if len(otherfiles):
@@ -364,8 +359,7 @@ class Node:
 			s = ServerProxy(other)
 			try:
 				# inform other node to add local node 
-				files = self.get_local_files()
-				s.add_node(self.url,files)
+				s.add_node(self.url,self.get_local_files())
 			except Fault,f:
 				mylogger.warn(f)
 				mylogger.warn('[online]: {0} started but inform failed'.format(other))
@@ -417,7 +411,8 @@ class Node:
 		try:
 			#mylogger.info("[list_other]: call list_local 3")
 			# since we connect to other,introduce self.url to other
-			s.hello(self.url)
+			# inform other node to add local node 
+			s.add_node(self.url,self.get_local_files())
 			# introduce self.url to other
 			lt = s.list_local()
 		except Fault,f:
@@ -438,8 +433,10 @@ class Node:
 		list all files in local node
 		"""
 		mylogger.info('[update_local_list]: update local list')
-		self.local_files = self.list_local()
-		self._trigger_update_local()
+		temp = self.list_local()
+		if not list_equal(temp,self.local_files):
+			self.local_files = temp
+			self._trigger_update_local()
 		return True
 
 	def update_remote_list(self):
@@ -453,10 +450,11 @@ class Node:
 				continue
 			else:
 				lt = self.list_other(other)
-				self.remote_files[other]= lt
-				if not len(lt):
-					del self.remote_files[other]
-				self._trigger_update_remote()
+				if not list_equal(lt,self.remote_files[other]):
+					self.remote_files[other]= lt
+					if not len(lt):
+						del self.remote_files[other]
+					self._trigger_update_remote()
 		return True
 
 def main():

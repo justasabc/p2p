@@ -404,7 +404,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		self.remote_files = NodeService.get_remote_files(self)
 
 	def _setLocalLabel(self):
-		mylogger.info("[_setLocalLabel]...")
+		#mylogger.info("[_setLocalLabel]...")
 		str_local = "local@{0} [total {1} files]".format(self.localurl,len(self.local_files))
 		self.main_widget.label_local.setText(str_local)
 
@@ -415,20 +415,20 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		return count
 
 	def _setRemoteLabel(self):
-		mylogger.info("[_setRemoteLabel]...")
+		#mylogger.info("[_setRemoteLabel]...")
 		nodeCount = len(self.remote_files)
 		fileCount = self._getRemoteFileCount(self.remote_files)
 		str_remote = "remote [{0} nodes,total {1} files]".format(nodeCount,fileCount)
 		self.main_widget.label_remote.setText(str_remote)
 
 	def _setLocalList(self):
-		mylogger.info("[_setLocalList]...")
+		#mylogger.info("[_setLocalList]...")
 		self.main_widget.list_local.clear()
 		for f in self.local_files:
 			self.main_widget.list_local.addItem(f)
 
 	def _setRemoteList(self):
-		mylogger.info("[_setRemoteList]...")
+		#mylogger.info("[_setRemoteList]...")
 		self.main_widget.list_remote.clear()
 		for url,lt in self.remote_files.iteritems():
 			for f in lt:
@@ -440,9 +440,11 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 			self._setLocalFiles()
 			self._setLocalLabel()
 			self._setLocalList()
-			mylogger.info('[setLocal] finiehed')
+			mylogger.info('[setLocal] finished')
 			# after set local list,clear local update
 			NodeService.clear_local_update(self) # set to false
+		else:
+			mylogger.info('*********NO GUI UPDATE FOR local list*********')
 	
 	def setRemote(self):
 		if NodeService.is_remote_updated(self):
@@ -450,11 +452,14 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 			self._setRemoteFiles()
 			self._setRemoteLabel()
 			self._setRemoteList()
-			mylogger.info('[setRemote] finiehed')
+			mylogger.info('[setRemote] finished')
 			# after set remote list,clear remote update
 			NodeService.clear_remote_update(self) # set to false
+		else:
+			mylogger.info('*********NO GUI UPDATE FOR remote list*********')
 
 	def updateList(self):
+		mylogger.info('-'*50)
 		mylogger.info("[updateList]...")
 		# update local and remote files
 		NodeService.update_local_list(self)
@@ -462,6 +467,7 @@ class GuiClient(NodeService,QtGui.QMainWindow):
 		self.setLocal()
 		self.setRemote()
 		mylogger.info("[updateList] finished")
+		mylogger.info('-'*50)
 
 	def setFetchEnabled(self,enabled):
 		self.fetchAction.setEnabled(enabled)
