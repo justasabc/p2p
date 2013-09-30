@@ -321,7 +321,9 @@ class Node:
 			s = ServerProxy(other)
 			try:
 				# inform other node to add local node 
-				s.add(self.url,self.get_local_files())
+				files = self.get_local_files()
+				print files
+				s.add(self.url,files)
 			except Fault,f:
 				mylogger.warn(f)
 				mylogger.warn('[online]: {0} started but inform failed'.format(other))
