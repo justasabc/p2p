@@ -290,7 +290,6 @@ class Node:
 		"""
 		mylogger.info('[hello]: introduce {0} to me'.format(url))
 		self.known.add(url)
-		self._trigger_update_remote()
 		return True
 
 	def get_url(self):
