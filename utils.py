@@ -135,7 +135,11 @@ def ip_exist(ip):
 	try:
 		socket.gethostbyaddr(ip)
 		return True
-	except socket.herror:
+	except socket.herror,e:
+		print("herror: {0}".format(e))
+		return False
+	except socket.gaierror,e:
+		print("gaierror: {0}".format(e))
 		return False
 
 def read_urls(ipsfile):
